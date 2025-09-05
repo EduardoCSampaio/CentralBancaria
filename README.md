@@ -1,5 +1,3 @@
-# Firebase Studio
+# Excel Insights
 
-This is a NextJS starter in Firebase Studio.
-
-To get started, take a look at src/app/page.tsx.
+This Next.js application allows users to import data from Excel files, validate it using AI, and export it as a CSV.
