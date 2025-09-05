@@ -77,6 +77,21 @@ export default function ConsultaPage() {
     const formatLabel = (key: string) => {
         return FIELD_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     };
+    
+    const formatValue = (key: string, value: any) => {
+        const stringValue = String(value ?? '');
+        const currencyFields = ['valor_beneficio', 'margem_disponivel', 'margem_rmc'];
+
+        if (currencyFields.includes(key) && stringValue) {
+             // Remove non-digit characters except for comma and period, then format
+            const numericValue = parseFloat(stringValue.replace(/[^\d,.-]/g, '').replace(',', '.'));
+            if (!isNaN(numericValue)) {
+                return `R$ ${numericValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            }
+        }
+        
+        return stringValue;
+    }
 
     const fieldsToDisplay = Object.keys(FIELD_LABELS);
 
@@ -162,7 +177,7 @@ export default function ConsultaPage() {
                                     {fieldsToDisplay.map((key) => (
                                         <div key={key}>
                                             <p className="text-sm font-medium text-muted-foreground">{formatLabel(key)}</p>
-                                            <p className="font-semibold">{String(clientData[key] ?? '')}</p>
+                                            <p className="font-semibold">{formatValue(key, clientData[key])}</p>
                                         </div>
                                     ))}
                                 </div>
