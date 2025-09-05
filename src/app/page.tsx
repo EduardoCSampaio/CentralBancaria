@@ -6,12 +6,13 @@ import { FileUploader } from '@/components/file-uploader';
 import { DataTable } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, FileCheck2, Loader2, Search, Save, UploadCloud } from 'lucide-react';
+import { Download, FileCheck2, Loader2, Search, Save, UploadCloud, KeyRound } from 'lucide-react';
 import type { ValidateImportedDataOutput } from '@/ai/flows/validate-imported-data';
 import { useToast } from '@/hooks/use-toast';
 import { REQUIRED_FIELDS, FIELD_LABELS } from '@/lib/constants';
 import { exportToCsv } from '@/lib/csv';
 import { setValidatedData } from '@/lib/storage';
+import { Input } from '@/components/ui/input';
 
 type AppState = "upload" | "mapping" | "processed";
 
@@ -21,7 +22,33 @@ export default function UploadPage() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [columnMappings, setColumnMappings] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [password, setPassword] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { toast } = useToast();
+
+  const handleLogin = () => {
+    // Senha hardcoded. Em um app real, use um sistema de autenticação seguro.
+    if (password === 'admin') {
+      setIsAuthenticated(true);
+      toast({
+        title: 'Autenticado com sucesso!',
+        description: 'Você já pode fazer o upload de arquivos.',
+      });
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Senha incorreta',
+        description: 'Por favor, tente novamente.',
+      });
+    }
+  };
+  
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Enter') {
+          handleLogin();
+      }
+  };
+
 
   const handleFileUpload = (uploadedData: any[][], uploadedHeaders: string[]) => {
     setData(uploadedData);
@@ -171,74 +198,97 @@ export default function UploadPage() {
           Importe, processe e exporte seus dados de planilha com facilidade e precisão.
         </p>
       </div>
-      
-      {appState === 'upload' && (
-        <div className="mx-auto max-w-4xl grid md:grid-cols-2 gap-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><UploadCloud /> Etapa 1: Enviar Planilha</CardTitle>
-              <CardDescription>Comece enviando seu arquivo Excel (.xls ou .xlsx).</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FileUploader onFileUpload={handleFileUpload} />
-            </CardContent>
-          </Card>
-          <Card className="flex flex-col">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Search />Consultar Cliente</CardTitle>
-                <CardDescription>Busque por um cliente já processado usando o CPF.</CardDescription>
-            </CardHeader>
-            <CardContent className="flex-grow flex flex-col items-center justify-center text-center">
-                <p className="text-muted-foreground mb-4">Acesse a página de consulta para buscar clientes.</p>
-                <Link href="/consulta" passHref>
-                  <Button>
-                    <Search className="mr-2" />
-                    Ir para Consulta
-                  </Button>
-                </Link>
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
-      {(appState === 'mapping' || appState === 'processed') && (
-        <Card>
-          <CardHeader>
-             <CardTitle>Etapa 2: Mapear e Processar</CardTitle>
-             <CardDescription>
-                Associe cada coluna da sua planilha ao campo correto. Depois, clique em "Processar e Salvar".
-             </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <DataTable 
-              headers={headers}
-              data={data}
-              columnMappings={columnMappings}
-              onColumnMappingChange={handleColumnMappingChange}
-              validationResults={null}
-            />
-            <div className="flex flex-wrap gap-4 justify-end">
-               <Button variant="outline" onClick={handleReset}>
-                Enviar Novo Arquivo
-               </Button>
-               <Button onClick={handleProcessAndSave} disabled={isProcessing || !isMappingComplete}>
-                {isProcessing ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                Processar e Salvar
-               </Button>
-               <Button onClick={handleExport} disabled={appState !== 'processed'}>
-                <Download className="mr-2 h-4 w-4" />
-                Exportar CSV
-               </Button>
+      {!isAuthenticated ? (
+         <Card className="max-w-md mx-auto">
+             <CardHeader>
+                 <CardTitle className="flex items-center gap-2"><KeyRound /> Acesso Restrito</CardTitle>
+                 <CardDescription>Por favor, insira a senha para continuar.</CardDescription>
+             </CardHeader>
+             <CardContent>
+                 <div className="flex gap-2">
+                     <Input
+                         type="password"
+                         placeholder="Digite a senha..."
+                         value={password}
+                         onChange={(e) => setPassword(e.target.value)}
+                         onKeyDown={handleKeyDown}
+                     />
+                     <Button onClick={handleLogin}>Entrar</Button>
+                 </div>
+             </CardContent>
+         </Card>
+      ) : (
+        <>
+          {appState === 'upload' && (
+            <div className="mx-auto max-w-4xl grid md:grid-cols-2 gap-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><UploadCloud /> Etapa 1: Enviar Planilha</CardTitle>
+                  <CardDescription>Comece enviando seu arquivo Excel (.xls ou .xlsx).</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <FileUploader onFileUpload={handleFileUpload} />
+                </CardContent>
+              </Card>
+              <Card className="flex flex-col">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Search />Consultar Cliente</CardTitle>
+                    <CardDescription>Busque por um cliente já processado usando o CPF.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-grow flex flex-col items-center justify-center text-center">
+                    <p className="text-muted-foreground mb-4">Acesse a página de consulta para buscar clientes.</p>
+                    <Link href="/consulta" passHref>
+                      <Button>
+                        <Search className="mr-2" />
+                        Ir para Consulta
+                      </Button>
+                    </Link>
+                </CardContent>
+              </Card>
             </div>
-             {!isMappingComplete && (
-                <p className="text-sm text-muted-foreground text-right">Mapeie todos os campos obrigatórios para habilitar o processamento.</p>
-             )}
-          </CardContent>
-        </Card>
+          )}
+
+          {(appState === 'mapping' || appState === 'processed') && (
+            <Card>
+              <CardHeader>
+                 <CardTitle>Etapa 2: Mapear e Processar</CardTitle>
+                 <CardDescription>
+                    Associe cada coluna da sua planilha ao campo correto. Depois, clique em "Processar e Salvar".
+                 </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <DataTable 
+                  headers={headers}
+                  data={data}
+                  columnMappings={columnMappings}
+                  onColumnMappingChange={handleColumnMappingChange}
+                  validationResults={null}
+                />
+                <div className="flex flex-wrap gap-4 justify-end">
+                   <Button variant="outline" onClick={handleReset}>
+                    Enviar Novo Arquivo
+                   </Button>
+                   <Button onClick={handleProcessAndSave} disabled={isProcessing || !isMappingComplete}>
+                    {isProcessing ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Processar e Salvar
+                   </Button>
+                   <Button onClick={handleExport} disabled={appState !== 'processed'}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Exportar CSV
+                   </Button>
+                </div>
+                 {!isMappingComplete && (
+                    <p className="text-sm text-muted-foreground text-right">Mapeie todos os campos obrigatórios para habilitar o processamento.</p>
+                 )}
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </main>
   );
