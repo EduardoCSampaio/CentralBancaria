@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { getValidatedData } from "@/lib/storage";
 import { Search, User, AlertTriangle, Building, Shield, Loader2, Info } from "lucide-react";
 import { FIELD_LABELS } from "@/lib/constants";
+import { useToast } from "@/hooks/use-toast";
 
 type ClientData = Record<string, any>;
 
@@ -18,15 +19,25 @@ export default function ConsultaPage() {
     const [hasSearched, setHasSearched] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const { toast } = useToast();
 
     useEffect(() => {
-        // Check if running on the client side
-        if (typeof window !== 'undefined') {
+        const loadData = async () => {
             setIsLoading(true);
-            const data = getValidatedData();
-            setAllData(data);
-            setIsLoading(false);
-        }
+            try {
+                const data = await getValidatedData();
+                setAllData(data);
+            } catch (error) {
+                toast({
+                    variant: "destructive",
+                    title: "Erro ao carregar dados",
+                    description: "Não foi possível buscar os dados. Tente recarregar a página.",
+                });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadData();
     }, []);
 
     const handleSearch = () => {
@@ -45,7 +56,9 @@ export default function ConsultaPage() {
 
             const lowercasedTerm = searchTerm.toLowerCase();
             const results = allData.filter(client => 
-                Object.values(client).some(value =>
+                Object.entries(client).some(([key, value]) =>
+                    // Ignore 'id' and 'created_at' from Supabase
+                    key !== 'id' && key !== 'created_at' &&
                     String(value).toLowerCase().includes(lowercasedTerm)
                 )
             );
@@ -64,6 +77,8 @@ export default function ConsultaPage() {
     const formatLabel = (key: string) => {
         return FIELD_LABELS[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
     };
+
+    const fieldsToDisplay = Object.keys(FIELD_LABELS);
 
     return (
         <main className="container mx-auto p-4 md:p-8">
@@ -112,13 +127,24 @@ export default function ConsultaPage() {
                 </div>
             )}
 
-            {!isLoading && !hasSearched && (
-                <Card className="max-w-2xl mx-auto mt-8 border-dashed">
+            {!isLoading && allData.length === 0 && (
+                 <Card className="max-w-2xl mx-auto mt-8 border-dashed">
                      <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Info />Bem-vindo!</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-muted-foreground">Utilize a barra de busca acima para encontrar clientes por qualquer informação. Se a base de dados estiver vazia, acesse o <Link href="/admin" className="text-primary hover:underline">Painel Admin</Link> para importar novos clientes.</p>
+                        <p className="text-muted-foreground">A base de dados está vazia. Acesse o <Link href="/admin" className="text-primary hover:underline">Painel Admin</Link> para importar novos clientes.</p>
+                    </CardContent>
+                </Card>
+            )}
+
+            {!isLoading && allData.length > 0 && !hasSearched && (
+                <Card className="max-w-2xl mx-auto mt-8 border-dashed">
+                     <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Info />Pronto para começar!</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground">Utilize a barra de busca acima para encontrar clientes por qualquer informação. {allData.length} clientes na base.</p>
                     </CardContent>
                 </Card>
             )}
@@ -133,15 +159,12 @@ export default function ConsultaPage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                                    {Object.entries(clientData).map(([key, value]) => {
-                                        if (key === 'id') return null; // Não exibe o ID
-                                        return (
-                                            <div key={key}>
-                                                <p className="text-sm font-medium text-muted-foreground">{formatLabel(key)}</p>
-                                                <p className="font-semibold">{String(value)}</p>
-                                            </div>
-                                        )
-                                    })}
+                                    {fieldsToDisplay.map((key) => (
+                                        <div key={key}>
+                                            <p className="text-sm font-medium text-muted-foreground">{formatLabel(key)}</p>
+                                            <p className="font-semibold">{String(clientData[key] ?? '')}</p>
+                                        </div>
+                                    ))}
                                 </div>
                             </CardContent>
                         </Card>

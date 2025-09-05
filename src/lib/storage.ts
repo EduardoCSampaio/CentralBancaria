@@ -1,39 +1,31 @@
-"use client";
+import { supabase } from './supabase';
 
-const STORAGE_KEY = 'validatedClientData';
+const TABLE_NAME = 'clients';
 
-// Armazena os dados validados no localStorage
-export function setValidatedData(data: Record<string, any>[]) {
-    if (typeof window !== 'undefined') {
-        try {
-            // Para evitar duplicatas baseadas no CPF, criamos um mapa
-            const existingData = getValidatedData();
-            const dataMap = new Map(existingData.map(item => [item.cpf, item]));
+// Armazena os dados validados no Supabase
+export async function setValidatedData(data: Record<string, any>[]) {
+  if (data.length === 0) return;
 
-            // Adiciona ou atualiza novos itens
-            data.forEach(newItem => {
-                dataMap.set(newItem.cpf, newItem);
-            });
+  // O 'upsert' do Supabase insere novos registros ou atualiza os existentes
+  // se houver um conflito na coluna 'cpf'. Isso evita duplicatas.
+  const { error } = await supabase
+    .from(TABLE_NAME)
+    .upsert(data, { onConflict: 'cpf' });
 
-            const finalData = Array.from(dataMap.values());
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(finalData));
-        } catch (error) {
-            console.error("Erro ao salvar dados no localStorage:", error);
-            // Em um cenário real, poderíamos mostrar um toast para o usuário
-        }
-    }
+  if (error) {
+    console.error("Erro ao salvar dados no Supabase:", error);
+    throw error; // Propaga o erro para ser tratado na UI
+  }
 }
 
-// Recupera os dados validados do localStorage
-export function getValidatedData(): Record<string, any>[] {
-    if (typeof window !== 'undefined') {
-        try {
-            const data = localStorage.getItem(STORAGE_KEY);
-            return data ? JSON.parse(data) : [];
-        } catch (error) {
-            console.error("Erro ao ler dados do localStorage:", error);
-            return [];
-        }
-    }
+// Recupera os dados validados do Supabase
+export async function getValidatedData(): Promise<Record<string, any>[]> {
+  const { data, error } = await supabase.from(TABLE_NAME).select('*');
+  
+  if (error) {
+    console.error("Erro ao ler dados do Supabase:", error);
     return [];
+  }
+
+  return data || [];
 }

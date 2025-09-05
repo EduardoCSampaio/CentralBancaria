@@ -13,6 +13,7 @@ import { exportToCsv } from '@/lib/csv';
 import { getValidatedData, setValidatedData } from '@/lib/storage';
 import { Input } from '@/components/ui/input';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
+import { DataTable } from '@/components/data-table';
 
 type AppState = "upload" | "mapping" | "processed";
 
@@ -33,6 +34,7 @@ export default function AdminPage() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const { toast } = useToast();
+  const [isFetchingStats, setIsFetchingStats] = useState(true);
 
   const calculateStats = (allData: any[]) => {
     if (allData.length === 0) {
@@ -63,26 +65,35 @@ export default function AdminPage() {
     setStats({ totalClients, averageAge, ageDistribution });
   };
   
-  const fetchAndSetStats = () => {
-    const allData = getValidatedData();
-    calculateStats(allData);
+  const fetchAndSetStats = async () => {
+    setIsFetchingStats(true);
+    try {
+      const allData = await getValidatedData();
+      calculateStats(allData);
+    } catch(e) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao carregar dados',
+        description: 'Não foi possível buscar os dados do banco. Verifique sua conexão ou a configuração do Supabase.',
+      });
+    } finally {
+        setIsFetchingStats(false);
+    }
   }
 
   useEffect(() => {
-    // Check if running on the client side
-    if (typeof window !== 'undefined') {
-        if(isAuthenticated) {
-          fetchAndSetStats();
-        }
+    if(isAuthenticated) {
+      fetchAndSetStats();
     }
   }, [isAuthenticated]);
 
 
   const handleLogin = () => {
     setIsLoggingIn(true);
-    // Simulate a network request
+    // Simula uma requisição de rede
     setTimeout(() => {
-      if (password === 'admin') {
+      // Em um app real, a senha deveria ser validada no backend
+      if (password === (process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin')) {
         setIsAuthenticated(true);
         toast({
           title: 'Autenticado com sucesso!',
@@ -110,7 +121,6 @@ export default function AdminPage() {
     setHeaders(uploadedHeaders);
     setAppState("mapping");
 
-    // Automatic mapping
     const newMappings: Record<string, string> = {};
     const unmappedFields = [...REQUIRED_FIELDS];
 
@@ -140,7 +150,6 @@ export default function AdminPage() {
   const handleColumnMappingChange = (header: string, field: string) => {
     setColumnMappings(prev => {
       const newMappings = { ...prev };
-      // un-assign if another column has this field
       for (const key in newMappings) {
         if (newMappings[key] === field) {
           delete newMappings[key];
@@ -155,7 +164,7 @@ export default function AdminPage() {
     });
   };
 
-  const handleProcessAndSave = () => {
+  const handleProcessAndSave = async () => {
     const mappedFields = Object.values(columnMappings);
     const missingFields = REQUIRED_FIELDS.filter(f => !mappedFields.includes(f));
 
@@ -177,18 +186,25 @@ export default function AdminPage() {
           const mappedField = columnMappings[header];
           if (mappedField) {
              let value = row[index] !== null && row[index] !== undefined ? String(row[index]) : '';
+             // Pad CPF with leading zeros to ensure it has 11 digits
              if (mappedField === 'cpf') {
                  value = value.padStart(11, '0');
              }
              rowObject[mappedField] = value;
           }
         });
+        // Add default values for any missing required fields
+        REQUIRED_FIELDS.forEach(field => {
+            if(!rowObject.hasOwnProperty(field)){
+                rowObject[field] = '';
+            }
+        });
         return rowObject;
       });
       
-      setValidatedData(processedData);
+      await setValidatedData(processedData);
       setAppState("processed");
-      fetchAndSetStats(); // Recalculate stats after saving new data
+      await fetchAndSetStats(); // Recalculate stats after saving new data
 
       toast({
         title: 'Processamento concluído!',
@@ -200,28 +216,36 @@ export default function AdminPage() {
       toast({
         variant: 'destructive',
         title: 'Erro no processamento',
-        description: 'Ocorreu um erro ao processar os dados.',
+        description: 'Ocorreu um erro ao salvar os dados no banco de dados. Verifique o console para mais detalhes.',
       });
     } finally {
       setIsProcessing(false);
     }
   };
   
-  const handleExport = () => {
-    const dataToExport = getValidatedData();
-    if(dataToExport.length === 0){
+  const handleExport = async () => {
+    try {
+        const dataToExport = await getValidatedData();
+        if(dataToExport.length === 0){
+            toast({
+                variant: 'destructive',
+                title: 'Nenhum dado para exportar',
+                description: 'A base de dados está vazia.',
+            });
+            return;
+        }
+        exportToCsv(dataToExport, 'backup_dados_bancarios.csv');
+        toast({
+            title: 'Exportação Iniciada',
+            description: 'Seu arquivo de backup (CSV) será baixado em breve.',
+        });
+    } catch (error) {
         toast({
             variant: 'destructive',
-            title: 'Nenhum dado para exportar',
-            description: 'Processe um arquivo primeiro.',
+            title: 'Erro ao exportar',
+            description: 'Não foi possível carregar os dados para exportação.',
         });
-        return;
     }
-    exportToCsv(dataToExport, 'backup_dados.csv');
-     toast({
-      title: 'Exportação Iniciada',
-      description: 'Seu arquivo de backup (CSV) será baixado em breve.',
-    });
   };
 
   const handleReset = () => {
@@ -231,7 +255,7 @@ export default function AdminPage() {
     setColumnMappings({});
   };
 
-  const isMappingComplete = REQUIRED_FIELDS.length === Object.values(columnMappings).filter(Boolean).length;
+  const isMappingComplete = REQUIRED_FIELDS.every(f => Object.values(columnMappings).includes(f));
 
   return (
     <main className="container mx-auto p-4 md:p-8">
@@ -275,7 +299,13 @@ export default function AdminPage() {
             </Card>
         ) : (
             <div className="grid gap-8">
-                {stats && (
+                {isFetchingStats ? (
+                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                        <Card><CardHeader><CardTitle className='text-sm font-medium'>Carregando...</CardTitle></CardHeader><CardContent><Loader2 className="h-8 w-8 animate-spin text-primary" /></CardContent></Card>
+                        <Card><CardHeader><CardTitle className='text-sm font-medium'>Carregando...</CardTitle></CardHeader><CardContent><Loader2 className="h-8 w-8 animate-spin text-primary" /></CardContent></Card>
+                        <Card className="lg:col-span-2"><CardHeader><CardTitle className='text-sm font-medium'>Carregando...</CardTitle></CardHeader><CardContent><Loader2 className="h-8 w-8 animate-spin text-primary" /></CardContent></Card>
+                    </div>
+                ): stats && (
                     <section>
                         <h2 className="text-2xl font-semibold tracking-tight mb-4 flex items-center gap-2"><AreaChart /> Dashboard</h2>
                          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -348,7 +378,7 @@ export default function AdminPage() {
                         <CardDescription>Comece enviando seu arquivo Excel (.xls ou .xlsx) para processamento.</CardDescription>
                         </CardHeader>
                         <CardContent>
-                        { stats?.totalClients === 0 ? 
+                        { !isFetchingStats && stats?.totalClients === 0 ? 
                             <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
                                 <FileQuestion className="mx-auto h-12 w-12" />
                                 <h3 className="mt-4 text-lg font-semibold">Base de dados vazia</h3>
