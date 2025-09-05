@@ -509,7 +509,7 @@ export default function AdminPage() {
                         <CardHeader>
                             <CardTitle className='flex items-center justify-center gap-2'><CheckCircle className='text-green-500'/> Processamento Concluído</CardTitle>
                             <CardDescription>Os dados foram salvos com sucesso no banco de dados.</CardDescription>
-                        </Header>
+                        </CardHeader>
                         <CardContent className='flex flex-col sm:flex-row gap-4 justify-center'>
                            <Button onClick={handleReset} className='w-full sm:w-auto'>
                                 <UploadCloud className="mr-2 h-4 w-4" /> Enviar Novo Arquivo
