@@ -6,14 +6,25 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { FileUploader } from '@/components/file-uploader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Loader2, Save, UploadCloud, KeyRound, ArrowLeft, Users, AreaChart, BarChart2, FileQuestion, CheckCircle, Search } from 'lucide-react';
+import { Download, Loader2, Save, UploadCloud, KeyRound, ArrowLeft, Users, AreaChart, BarChart2, FileQuestion, CheckCircle, Search, CalendarCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { REQUIRED_FIELDS, FIELD_LABELS } from '@/lib/constants';
 import { exportToCsv } from '@/lib/csv';
-import { getValidatedData, setValidatedData } from '@/lib/storage';
+import { getValidatedData, setValidatedData, checkAndFixDates } from '@/lib/storage';
 import { Input } from '@/components/ui/input';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { DataTable } from '@/components/data-table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 type AppState = "upload" | "mapping" | "processed";
 
@@ -35,6 +46,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const { toast } = useToast();
   const [isFetchingStats, setIsFetchingStats] = useState(true);
+  const [isCheckingDates, setIsCheckingDates] = useState(false);
 
   const calculateStats = (allData: any[]) => {
     if (allData.length === 0) {
@@ -93,7 +105,9 @@ export default function AdminPage() {
     // Simula uma requisição de rede
     setTimeout(() => {
       // Em um app real, a senha deveria ser validada no backend
-      if (password === (process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin')) {
+      // A senha 'admin' é um fallback, priorizando a variável de ambiente.
+      const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin';
+      if (password === adminPassword) {
         setIsAuthenticated(true);
         toast({
           title: 'Autenticado com sucesso!',
@@ -255,6 +269,33 @@ export default function AdminPage() {
     }
   };
 
+  const handleCheckAndFixDates = async () => {
+    setIsCheckingDates(true);
+    try {
+        const correctedCount = await checkAndFixDates();
+        if (correctedCount > 0) {
+            toast({
+                title: 'Datas Corrigidas!',
+                description: `${correctedCount} registro(s) de data de nascimento foram corrigidos com sucesso.`,
+                 className: 'bg-accent/90 text-accent-foreground border-accent'
+            });
+        } else {
+             toast({
+                title: 'Nenhuma correção necessária',
+                description: 'Todas as datas de nascimento no banco de dados já estão no formato correto.',
+            });
+        }
+    } catch(e) {
+        toast({
+            variant: 'destructive',
+            title: 'Erro ao verificar datas',
+            description: 'Não foi possível completar a verificação. Tente novamente.',
+        });
+    } finally {
+        setIsCheckingDates(false);
+    }
+  };
+
   const handleReset = () => {
     setAppState("upload");
     setData([]);
@@ -340,13 +381,34 @@ export default function AdminPage() {
                                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                      <CardTitle className="text-sm font-medium">Ações Rápidas</CardTitle>
                                  </CardHeader>
-                                 <CardContent className='flex gap-2'>
-                                    <Button variant="outline" onClick={handleReset} className='w-full' disabled={appState === 'upload'}>
+                                 <CardContent className='flex flex-wrap gap-2'>
+                                    <Button variant="outline" onClick={handleReset} className='flex-1' disabled={appState === 'upload'}>
                                         <UploadCloud className="mr-2 h-4 w-4" /> Enviar Novo Arquivo
                                     </Button>
-                                    <Button onClick={handleExport} className='w-full' disabled={stats.totalClients === 0}>
+                                    <Button onClick={handleExport} className='flex-1' disabled={stats.totalClients === 0}>
                                         <Download className="mr-2 h-4 w-4" /> Fazer Backup (CSV)
                                     </Button>
+                                     <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                           <Button variant="secondary" className='flex-1' disabled={isCheckingDates || stats.totalClients === 0}>
+                                                {isCheckingDates ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarCheck className="mr-2 h-4 w-4" />}
+                                                Verificar Datas
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                            <AlertDialogTitle>Confirmar Verificação de Datas?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Esta ação irá varrer todo o banco de dados em busca de datas de nascimento em formato numérico (de planilha) e as converterá para o formato DD/MM/AAAA.
+                                                Isso não afetará as datas que já estão corretas. Deseja continuar?
+                                            </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleCheckAndFixDates}>Sim, Verificar e Corrigir</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                  </CardContent>
                              </Card>
                          </div>
@@ -447,7 +509,7 @@ export default function AdminPage() {
                         <CardHeader>
                             <CardTitle className='flex items-center justify-center gap-2'><CheckCircle className='text-green-500'/> Processamento Concluído</CardTitle>
                             <CardDescription>Os dados foram salvos com sucesso no banco de dados.</CardDescription>
-                        </CardHeader>
+                        </Header>
                         <CardContent className='flex flex-col sm:flex-row gap-4 justify-center'>
                            <Button onClick={handleReset} className='w-full sm:w-auto'>
                                 <UploadCloud className="mr-2 h-4 w-4" /> Enviar Novo Arquivo
