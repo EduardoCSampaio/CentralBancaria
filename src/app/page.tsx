@@ -199,97 +199,100 @@ export default function UploadPage() {
         </p>
       </div>
 
-      {!isAuthenticated ? (
-         <Card className="max-w-md mx-auto">
-             <CardHeader>
-                 <CardTitle className="flex items-center gap-2"><KeyRound /> Acesso Restrito</CardTitle>
-                 <CardDescription>Por favor, insira a senha para continuar.</CardDescription>
-             </CardHeader>
-             <CardContent>
-                 <div className="flex gap-2">
-                     <Input
-                         type="password"
-                         placeholder="Digite a senha..."
-                         value={password}
-                         onChange={(e) => setPassword(e.target.value)}
-                         onKeyDown={handleKeyDown}
-                     />
-                     <Button onClick={handleLogin}>Entrar</Button>
-                 </div>
-             </CardContent>
-         </Card>
-      ) : (
-        <>
-          {appState === 'upload' && (
-            <div className="mx-auto max-w-4xl grid md:grid-cols-2 gap-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2"><UploadCloud /> Etapa 1: Enviar Planilha</CardTitle>
-                  <CardDescription>Comece enviando seu arquivo Excel (.xls ou .xlsx).</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <FileUploader onFileUpload={handleFileUpload} />
-                </CardContent>
-              </Card>
-              <Card className="flex flex-col">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Search />Consultar Cliente</CardTitle>
-                    <CardDescription>Busque por um cliente já processado usando o CPF.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow flex flex-col items-center justify-center text-center">
-                    <p className="text-muted-foreground mb-4">Acesse a página de consulta para buscar clientes.</p>
-                    <Link href="/consulta" passHref>
-                      <Button>
-                        <Search className="mr-2" />
-                        Ir para Consulta
-                      </Button>
-                    </Link>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {(appState === 'mapping' || appState === 'processed') && (
-            <Card>
-              <CardHeader>
-                 <CardTitle>Etapa 2: Mapear e Processar</CardTitle>
-                 <CardDescription>
-                    Associe cada coluna da sua planilha ao campo correto. Depois, clique em "Processar e Salvar".
-                 </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <DataTable 
-                  headers={headers}
-                  data={data}
-                  columnMappings={columnMappings}
-                  onColumnMappingChange={handleColumnMappingChange}
-                  validationResults={null}
-                />
-                <div className="flex flex-wrap gap-4 justify-end">
-                   <Button variant="outline" onClick={handleReset}>
-                    Enviar Novo Arquivo
-                   </Button>
-                   <Button onClick={handleProcessAndSave} disabled={isProcessing || !isMappingComplete}>
-                    {isProcessing ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="mr-2 h-4 w-4" />
+       <div className="mx-auto max-w-4xl grid md:grid-cols-2 gap-8">
+        <div className="space-y-8">
+            {isAuthenticated ? (
+                <>
+                    {appState === 'upload' && (
+                         <Card>
+                            <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><UploadCloud /> Etapa 1: Enviar Planilha</CardTitle>
+                            <CardDescription>Comece enviando seu arquivo Excel (.xls ou .xlsx).</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                            <FileUploader onFileUpload={handleFileUpload} />
+                            </CardContent>
+                        </Card>
                     )}
-                    Processar e Salvar
-                   </Button>
-                   <Button onClick={handleExport} disabled={appState !== 'processed'}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Exportar CSV
-                   </Button>
-                </div>
-                 {!isMappingComplete && (
-                    <p className="text-sm text-muted-foreground text-right">Mapeie todos os campos obrigatórios para habilitar o processamento.</p>
-                 )}
-              </CardContent>
-            </Card>
-          )}
-        </>
-      )}
+
+                    {(appState === 'mapping' || appState === 'processed') && (
+                        <Card>
+                        <CardHeader>
+                            <CardTitle>Etapa 2: Mapear e Processar</CardTitle>
+                            <CardDescription>
+                                Associe cada coluna da sua planilha ao campo correto. Depois, clique em "Processar e Salvar".
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <DataTable 
+                            headers={headers}
+                            data={data}
+                            columnMappings={columnMappings}
+                            onColumnMappingChange={handleColumnMappingChange}
+                            validationResults={null}
+                            />
+                            <div className="flex flex-wrap gap-4 justify-end">
+                            <Button variant="outline" onClick={handleReset}>
+                                Enviar Novo Arquivo
+                            </Button>
+                            <Button onClick={handleProcessAndSave} disabled={isProcessing || !isMappingComplete}>
+                                {isProcessing ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                <Save className="mr-2 h-4 w-4" />
+                                )}
+                                Processar e Salvar
+                            </Button>
+                            <Button onClick={handleExport} disabled={appState !== 'processed'}>
+                                <Download className="mr-2 h-4 w-4" />
+                                Exportar CSV
+                            </Button>
+                            </div>
+                            {!isMappingComplete && (
+                                <p className="text-sm text-muted-foreground text-right">Mapeie todos os campos obrigatórios para habilitar o processamento.</p>
+                            )}
+                        </CardContent>
+                        </Card>
+                    )}
+                </>
+            ) : (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><KeyRound /> Acesso Restrito ao Upload</CardTitle>
+                        <CardDescription>Por favor, insira a senha para fazer o upload de arquivos.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex gap-2">
+                            <Input
+                                type="password"
+                                placeholder="Digite a senha..."
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                onKeyDown={handleKeyDown}
+                            />
+                            <Button onClick={handleLogin}>Entrar</Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+        </div>
+
+        <Card className="flex flex-col">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Search />Consultar Cliente</CardTitle>
+                <CardDescription>Busque por um cliente já processado usando o CPF.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-grow flex flex-col items-center justify-center text-center">
+                <p className="text-muted-foreground mb-4">Acesse a página de consulta para buscar clientes.</p>
+                <Link href="/consulta" passHref>
+                    <Button>
+                    <Search className="mr-2" />
+                    Ir para Consulta
+                    </Button>
+                </Link>
+            </CardContent>
+        </Card>
+      </div>
     </main>
   );
 }
