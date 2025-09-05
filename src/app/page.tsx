@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { getValidatedData } from "@/lib/storage";
-import { Search, User, AlertTriangle, FileCheck2, Shield } from "lucide-react";
+import { Search, User, AlertTriangle, Building, Shield } from "lucide-react";
 import { FIELD_LABELS } from "@/lib/constants";
 
 type ClientData = Record<string, any>;
@@ -52,15 +52,15 @@ export default function ConsultaPage() {
     return (
         <main className="container mx-auto p-4 md:p-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
-                <div className="flex items-center gap-2 mb-4 sm:mb-0">
-                    <FileCheck2 className="h-8 w-8 text-primary" />
+                <div className="flex items-center gap-3 mb-4 sm:mb-0">
+                    <Building className="h-8 w-8 text-primary" />
                     <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-primary">
-                        Excel Insights
+                        Central Bancária
                     </h1>
                 </div>
                  <Link href="/admin" passHref>
                     <Button variant="outline">
-                        <Shield className="mr-2" />
+                        <Shield className="mr-2 h-4 w-4" />
                         Painel Admin
                     </Button>
                 </Link>
@@ -81,7 +81,7 @@ export default function ConsultaPage() {
                             onKeyDown={handleKeyDown}
                         />
                         <Button onClick={handleSearch}>
-                            <Search className="mr-2" />
+                            <Search className="mr-2 h-4 w-4" />
                             Buscar
                         </Button>
                     </div>
@@ -117,7 +117,7 @@ export default function ConsultaPage() {
                         <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle />Nenhum resultado</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-destructive">Não foi encontrado nenhum cliente com o termo informado. Verifique e tente novamente ou processe um novo arquivo no Painel Admin.</p>
+                        <p>Não foi encontrado nenhum cliente com o termo informado. Verifique e tente novamente ou processe um novo arquivo no Painel Admin.</p>
                     </CardContent>
                 </Card>
             )}

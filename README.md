@@ -1,3 +1,3 @@
-# Excel Insights
+# Central Bancária
 
-This Next.js application allows users to import data from Excel files, validate it using AI, and export it as a CSV.
+Esta aplicação Next.js permite importar dados de clientes, gerenciá-los e consultá-los de forma segura.

@@ -285,7 +285,7 @@ export default function AdminPage() {
                              </Card>
                               <Card className="lg:col-span-2">
                                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                     <CardTitle className="text-sm font-medium">Ações Rápida</CardTitle>
+                                     <CardTitle className="text-sm font-medium">Ações Rápidas</CardTitle>
                                  </CardHeader>
                                  <CardContent className='flex gap-2'>
                                     <Button variant="outline" onClick={handleReset} className='w-full'>
