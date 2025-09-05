@@ -1,20 +1,22 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { FileUploader } from '@/components/file-uploader';
 import { DataTable } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, FileCheck2, Loader2, Sparkles } from 'lucide-react';
+import { Download, FileCheck2, Loader2, Search, Sparkles, UploadCloud } from 'lucide-react';
 import type { ValidateImportedDataInput, ValidateImportedDataOutput } from '@/ai/flows/validate-imported-data';
 import { validateImportedData } from '@/ai/flows/validate-imported-data';
 import { useToast } from '@/hooks/use-toast';
-import { REQUIRED_FIELDS } from '@/lib/constants';
+import { REQUIRED_FIELDS, FIELD_LABELS } from '@/lib/constants';
 import { exportToCsv } from '@/lib/csv';
+import { setValidatedData } from '@/lib/storage';
 
 type AppState = "upload" | "mapping" | "validated";
 
-export default function Home() {
+export default function UploadPage() {
   const [appState, setAppState] = useState<AppState>("upload");
   const [data, setData] = useState<any[][]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
@@ -26,12 +28,33 @@ export default function Home() {
   const handleFileUpload = (uploadedData: any[][], uploadedHeaders: string[]) => {
     setData(uploadedData);
     setHeaders(uploadedHeaders);
-    setAppState("mapping");
     setValidationResults({});
-    setColumnMappings({});
+    setAppState("mapping");
+
+    // Automatic mapping
+    const newMappings: Record<string, string> = {};
+    const unmappedFields = [...REQUIRED_FIELDS];
+
+    uploadedHeaders.forEach(header => {
+      const normalizedHeader = header.toLowerCase().replace(/[\s_]+/g, '');
+      const fieldKeys = Object.keys(FIELD_LABELS);
+      const matchedField = fieldKeys.find(field => {
+        const normalizedLabel = FIELD_LABELS[field].toLowerCase().replace(/[\s_]+/g, '');
+        const normalizedField = field.toLowerCase().replace(/[\s_]+/g, '');
+        return normalizedLabel === normalizedHeader || normalizedField === normalizedHeader;
+      });
+
+      if (matchedField && unmappedFields.includes(matchedField)) {
+        newMappings[header] = matchedField;
+        unmappedFields.splice(unmappedFields.indexOf(matchedField), 1);
+      }
+    });
+
+    setColumnMappings(newMappings);
+    
     toast({
       title: 'Arquivo carregado',
-      description: 'Mapeie as colunas para os campos correspondentes.',
+      description: 'As colunas foram mapeadas automaticamente. Verifique e prossiga.',
     });
   };
 
@@ -44,7 +67,7 @@ export default function Home() {
           delete newMappings[key];
         }
       }
-      if (field) {
+      if (field && field !== 'none') {
         newMappings[header] = field;
       } else {
         delete newMappings[header];
@@ -61,13 +84,14 @@ export default function Home() {
       toast({
         variant: 'destructive',
         title: 'Mapeamento incompleto',
-        description: `Por favor, mapeie os seguintes campos: ${missingFields.join(', ')}`,
+        description: `Por favor, mapeie os seguintes campos: ${missingFields.map(f => FIELD_LABELS[f]).join(', ')}`,
       });
       return;
     }
 
     setIsProcessing(true);
     const newValidationResults: Record<number, ValidateImportedDataOutput['validationResults']> = {};
+    const validatedDataToStore: Record<string, any>[] = [];
     
     try {
       for (let i = 0; i < data.length; i++) {
@@ -75,17 +99,27 @@ export default function Home() {
         const input: ValidateImportedDataInput = Object.fromEntries(
             REQUIRED_FIELDS.map(field => [field, ''])
         ) as ValidateImportedDataInput;
+        
+        const rowObjectForStorage: Record<string, any> = {};
 
         headers.forEach((header, index) => {
           const mappedField = columnMappings[header];
           if (mappedField) {
-            input[mappedField as keyof ValidateImportedDataInput] = row[index] !== null && row[index] !== undefined ? String(row[index]) : '';
+            const value = row[index] !== null && row[index] !== undefined ? String(row[index]) : '';
+            input[mappedField as keyof ValidateImportedDataInput] = value;
+            rowObjectForStorage[mappedField] = value;
           }
         });
 
         const result = await validateImportedData(input);
         newValidationResults[i] = result.validationResults;
+        const hasErrors = result.validationResults.some(res => !res.isValid);
+        if (!hasErrors) {
+           validatedDataToStore.push(rowObjectForStorage);
+        }
       }
+      
+      setValidatedData(validatedDataToStore);
 
       setValidationResults(newValidationResults);
       setAppState("validated");
@@ -152,21 +186,38 @@ export default function Home() {
       </div>
       
       {appState === 'upload' && (
-         <Card className="mx-auto max-w-3xl">
-          <CardHeader>
-            <CardTitle>Passo 1: Enviar Planilha</CardTitle>
-            <CardDescription>Comece enviando seu arquivo Excel (.xls ou .xlsx).</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <FileUploader onFileUpload={handleFileUpload} />
-          </CardContent>
-        </Card>
+        <div className="mx-auto max-w-4xl grid md:grid-cols-2 gap-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><UploadCloud /> Etapa 1: Enviar Planilha</CardTitle>
+              <CardDescription>Comece enviando seu arquivo Excel (.xls ou .xlsx) para validação.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FileUploader onFileUpload={handleFileUpload} />
+            </CardContent>
+          </Card>
+          <Card className="flex flex-col">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Search />Consultar Cliente</CardTitle>
+                <CardDescription>Busque por um cliente já validado usando o CPF.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-grow flex flex-col items-center justify-center text-center">
+                <p className="text-muted-foreground mb-4">Acesse a página de consulta para buscar clientes.</p>
+                <Link href="/consulta" passHref>
+                  <Button>
+                    <Search className="mr-2" />
+                    Ir para Consulta
+                  </Button>
+                </Link>
+            </CardContent>
+          </Card>
+        </div>
       )}
 
       {(appState === 'mapping' || appState === 'validated') && (
         <Card>
           <CardHeader>
-             <CardTitle>Passo 2: Mapear e Validar</CardTitle>
+             <CardTitle>Etapa 2: Mapear e Validar</CardTitle>
              <CardDescription>
                 Associe cada coluna da sua planilha ao campo correto. Depois, clique em "Validar com IA" para verificar os dados.
              </CardDescription>

@@ -52,9 +52,13 @@ export function DataTable({
     return validation;
   };
 
-  const availableFields = REQUIRED_FIELDS.filter(
-    field => !Object.values(columnMappings).includes(field)
-  );
+  const getAvailableFieldsForColumn = (currentField: string | undefined) => {
+    const mappedFields = Object.values(columnMappings);
+    return REQUIRED_FIELDS.filter(
+      field => !mappedFields.includes(field) || field === currentField
+    );
+  };
+
 
   return (
     <TooltipProvider>
@@ -62,34 +66,37 @@ export function DataTable({
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              {headers.map((header, index) => (
-                <TableHead key={index} className="min-w-[200px] whitespace-nowrap p-2 align-top">
-                  <div className="flex flex-col gap-2">
-                    <span className="font-bold text-foreground">{header}</span>
-                    <Select
-                      value={columnMappings[header] || ''}
-                      onValueChange={(value) => onColumnMappingChange(header, value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione um campo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
-                        {columnMappings[header] && <SelectItem value={columnMappings[header]!}>{FIELD_LABELS[columnMappings[header]!]}</SelectItem>}
-                        {availableFields.map((field) => (
-                          <SelectItem key={field} value={field}>
-                            {FIELD_LABELS[field]}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </TableHead>
-              ))}
+              {headers.map((header, index) => {
+                const currentMapping = columnMappings[header];
+                const availableFields = getAvailableFieldsForColumn(currentMapping);
+                return (
+                  <TableHead key={index} className="min-w-[200px] whitespace-nowrap p-2 align-top">
+                    <div className="flex flex-col gap-2">
+                      <span className="font-bold text-foreground">{header}</span>
+                      <Select
+                        value={currentMapping || 'none'}
+                        onValueChange={(value) => onColumnMappingChange(header, value)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione um campo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Nenhum</SelectItem>
+                          {availableFields.map((field) => (
+                            <SelectItem key={field} value={field}>
+                              {FIELD_LABELS[field]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </TableHead>
+                )
+              })}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.map((row, rowIndex) => (
+            {data.slice(0, 10).map((row, rowIndex) => (
               <TableRow key={rowIndex}>
                 {row.map((cell, colIndex) => {
                   const validation = getValidationStatus(rowIndex, colIndex);
@@ -126,6 +133,11 @@ export function DataTable({
             ))}
           </TableBody>
         </Table>
+        {data.length > 10 && (
+          <div className="p-4 text-center text-sm text-muted-foreground border-t">
+            Exibindo as primeiras 10 linhas. A validação será aplicada a todas as {data.length} linhas.
+          </div>
+        )}
       </div>
     </TooltipProvider>
   );
