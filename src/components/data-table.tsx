@@ -17,9 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { AlertCircle, CheckCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 
 interface DataTableProps {
   headers: string[];
@@ -52,71 +50,73 @@ export function DataTable({
     return validation;
   };
 
-  const getAvailableFieldsForColumn = (currentField: string | undefined) => {
+  const getAvailableFieldsForColumn = (currentHeader: string) => {
+    const currentMapping = columnMappings[currentHeader];
     const mappedFields = Object.values(columnMappings);
     return REQUIRED_FIELDS.filter(
-      field => !mappedFields.includes(field) || field === currentField
+      field => !mappedFields.includes(field) || field === currentMapping
     );
   };
 
-
   return (
-    <TooltipProvider>
-      <div className="w-full overflow-x-auto rounded-lg border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              {headers.map((header, index) => {
-                const currentMapping = columnMappings[header];
-                const availableFields = getAvailableFieldsForColumn(currentMapping);
+    <ScrollArea className="w-full whitespace-nowrap rounded-lg border">
+      <Table className='min-w-max'>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            {headers.map((header, index) => {
+              const currentMapping = columnMappings[header];
+              const availableFields = getAvailableFieldsForColumn(header);
+              return (
+                <TableHead key={index} className="min-w-[200px] whitespace-nowrap p-2 align-top">
+                  <div className="flex flex-col gap-2">
+                    <span className="font-bold text-foreground truncate">{header}</span>
+                    <Select
+                      value={currentMapping || 'none'}
+                      onValueChange={(value) => onColumnMappingChange(header, value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um campo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum (ignorar)</SelectItem>
+                        {currentMapping && !REQUIRED_FIELDS.includes(currentMapping) && (
+                           <SelectItem value={currentMapping} disabled>
+                              {currentMapping}
+                           </SelectItem>
+                        )}
+                        {REQUIRED_FIELDS.map((field) => (
+                           <SelectItem 
+                              key={field} 
+                              value={field}
+                              disabled={Object.values(columnMappings).includes(field) && currentMapping !== field}
+                           >
+                            {FIELD_LABELS[field]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </TableHead>
+              )
+            })}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {data.map((row, rowIndex) => (
+            <TableRow key={rowIndex}>
+              {row.map((cell, colIndex) => {
+                const cellContent = cell === null || cell === undefined ? '' : String(cell);
                 return (
-                  <TableHead key={index} className="min-w-[200px] whitespace-nowrap p-2 align-top">
-                    <div className="flex flex-col gap-2">
-                      <span className="font-bold text-foreground">{header}</span>
-                      <Select
-                        value={currentMapping || 'none'}
-                        onValueChange={(value) => onColumnMappingChange(header, value)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione um campo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Nenhum</SelectItem>
-                          {availableFields.map((field) => (
-                            <SelectItem key={field} value={field}>
-                              {FIELD_LABELS[field]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </TableHead>
-                )
+                  <TableCell key={colIndex} className="whitespace-nowrap transition-colors">
+                      <span className="truncate">{cellContent}</span>
+                  </TableCell>
+                );
               })}
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.slice(0, 10).map((row, rowIndex) => (
-              <TableRow key={rowIndex}>
-                {row.map((cell, colIndex) => {
-                  const cellContent = cell === null || cell === undefined ? '' : String(cell);
-                  
-                  return (
-                    <TableCell key={colIndex} className="whitespace-nowrap transition-colors">
-                        <span className="truncate">{cellContent}</span>
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {data.length > 10 && (
-          <div className="p-4 text-center text-sm text-muted-foreground border-t">
-            Exibindo as primeiras 10 linhas. O processamento será aplicado a todas as {data.length} linhas.
-          </div>
-        )}
-      </div>
-    </TooltipProvider>
+          ))}
+        </TableBody>
+      </Table>
+       <ScrollBar orientation="horizontal" />
+    </ScrollArea>
   );
 }

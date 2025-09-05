@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { getValidatedData } from "@/lib/storage";
-import { Search, User, AlertTriangle, Building, Shield, Loader2 } from "lucide-react";
+import { Search, User, AlertTriangle, Building, Shield, Loader2, Info } from "lucide-react";
 import { FIELD_LABELS } from "@/lib/constants";
 
 type ClientData = Record<string, any>;
@@ -16,6 +16,7 @@ export default function ConsultaPage() {
     const [searchResults, setSearchResults] = useState<ClientData[]>([]);
     const [allData, setAllData] = useState<ClientData[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
+    const [isSearching, setIsSearching] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
@@ -29,20 +30,29 @@ export default function ConsultaPage() {
     }, []);
 
     const handleSearch = () => {
-        setHasSearched(true);
-        if (!searchTerm.trim()) {
-            setSearchResults([]);
-            return;
-        }
-
-        const lowercasedTerm = searchTerm.toLowerCase();
-        const results = allData.filter(client => 
-            Object.values(client).some(value =>
-                String(value).toLowerCase().includes(lowercasedTerm)
-            )
-        );
+        if (isLoading) return;
         
-        setSearchResults(results);
+        setIsSearching(true);
+        setHasSearched(true);
+
+        // Simulate search delay for better UX
+        setTimeout(() => {
+            if (!searchTerm.trim()) {
+                setSearchResults([]);
+                setIsSearching(false);
+                return;
+            }
+
+            const lowercasedTerm = searchTerm.toLowerCase();
+            const results = allData.filter(client => 
+                Object.values(client).some(value =>
+                    String(value).toLowerCase().includes(lowercasedTerm)
+                )
+            );
+            
+            setSearchResults(results);
+            setIsSearching(false);
+        }, 300);
     };
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -85,10 +95,10 @@ export default function ConsultaPage() {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             onKeyDown={handleKeyDown}
-                            disabled={isLoading}
+                            disabled={isLoading || isSearching}
                         />
-                        <Button onClick={handleSearch} disabled={isLoading}>
-                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                        <Button onClick={handleSearch} disabled={isLoading || isSearching}>
+                            {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                             Buscar
                         </Button>
                     </div>
@@ -98,11 +108,22 @@ export default function ConsultaPage() {
             {isLoading && (
                 <div className="flex justify-center items-center mt-8">
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    <p className="ml-4 text-muted-foreground">Carregando dados dos clientes...</p>
+                    <p className="ml-4 text-muted-foreground">Carregando base de dados...</p>
                 </div>
             )}
 
-            {!isLoading && hasSearched && searchResults.length > 0 && (
+            {!isLoading && !hasSearched && (
+                <Card className="max-w-2xl mx-auto mt-8 border-dashed">
+                     <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Info />Bem-vindo!</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-muted-foreground">Utilize a barra de busca acima para encontrar clientes por qualquer informação. Se a base de dados estiver vazia, acesse o <Link href="/admin" className="text-primary hover:underline">Painel Admin</Link> para importar novos clientes.</p>
+                    </CardContent>
+                </Card>
+            )}
+
+            {!isLoading && hasSearched && !isSearching && searchResults.length > 0 && (
                  <div className="max-w-2xl mx-auto mt-8 space-y-6">
                     <h2 className="text-xl font-semibold">Resultados da Busca ({searchResults.length})</h2>
                     {searchResults.map((clientData, index) => (
@@ -111,13 +132,16 @@ export default function ConsultaPage() {
                                 <CardTitle className="flex items-center gap-2"><User />{clientData.nome || 'Informações do Cliente'}</CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {Object.entries(clientData).map(([key, value]) => (
-                                        <div key={key}>
-                                            <p className="text-sm font-medium text-muted-foreground">{formatLabel(key)}</p>
-                                            <p className="text-lg font-semibold">{String(value)}</p>
-                                        </div>
-                                    ))}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                                    {Object.entries(clientData).map(([key, value]) => {
+                                        if (key === 'id') return null; // Não exibe o ID do documento
+                                        return (
+                                            <div key={key}>
+                                                <p className="text-sm font-medium text-muted-foreground">{formatLabel(key)}</p>
+                                                <p className="font-semibold">{String(value)}</p>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
                             </CardContent>
                         </Card>
@@ -125,13 +149,13 @@ export default function ConsultaPage() {
                  </div>
             )}
 
-            {!isLoading && hasSearched && searchResults.length === 0 && (
+            {!isLoading && hasSearched && !isSearching && searchResults.length === 0 && (
                  <Card className="max-w-2xl mx-auto mt-8 border-destructive/50">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle />Nenhum resultado</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p>Não foi encontrado nenhum cliente com o termo informado. Verifique e tente novamente ou processe um novo arquivo no Painel Admin.</p>
+                        <p>Não foi encontrado nenhum cliente com o termo informado. Verifique e tente novamente ou processe um novo arquivo no <Link href="/admin" className="text-primary hover:underline">Painel Admin</Link>.</p>
                     </CardContent>
                 </Card>
             )}

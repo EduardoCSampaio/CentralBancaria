@@ -4,10 +4,9 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { FileUploader } from '@/components/file-uploader';
-import { DataTable } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Loader2, Save, UploadCloud, KeyRound, ArrowLeft, Users, AreaChart, BarChart2 } from 'lucide-react';
+import { Download, Loader2, Save, UploadCloud, KeyRound, ArrowLeft, Users, AreaChart, BarChart2, FileQuestion } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { REQUIRED_FIELDS, FIELD_LABELS } from '@/lib/constants';
 import { exportToCsv } from '@/lib/csv';
@@ -31,6 +30,7 @@ export default function AdminPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [password, setPassword] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const { toast } = useToast();
 
@@ -76,19 +76,24 @@ export default function AdminPage() {
 
 
   const handleLogin = () => {
-    if (password === 'admin') {
-      setIsAuthenticated(true);
-      toast({
-        title: 'Autenticado com sucesso!',
-        description: 'Bem-vindo ao Painel Admin.',
-      });
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Senha incorreta',
-        description: 'Por favor, tente novamente.',
-      });
-    }
+    setIsLoggingIn(true);
+    // Simulate a network request
+    setTimeout(() => {
+      if (password === 'admin') {
+        setIsAuthenticated(true);
+        toast({
+          title: 'Autenticado com sucesso!',
+          description: 'Bem-vindo ao Painel Admin.',
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Senha incorreta',
+          description: 'Por favor, tente novamente.',
+        });
+      }
+      setIsLoggingIn(false);
+    }, 500);
   };
   
   const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -256,8 +261,12 @@ export default function AdminPage() {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             onKeyDown={handleKeyDown}
+                            disabled={isLoggingIn}
                         />
-                        <Button onClick={handleLogin}>Entrar</Button>
+                        <Button onClick={handleLogin} disabled={isLoggingIn}>
+                            {isLoggingIn ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Entrar
+                        </Button>
                     </div>
                 </CardContent>
             </Card>
@@ -292,10 +301,10 @@ export default function AdminPage() {
                                      <CardTitle className="text-sm font-medium">Ações Rápidas</CardTitle>
                                  </CardHeader>
                                  <CardContent className='flex gap-2'>
-                                    <Button variant="outline" onClick={handleReset} className='w-full'>
+                                    <Button variant="outline" onClick={handleReset} className='w-full' disabled={appState === 'upload'}>
                                         <UploadCloud className="mr-2 h-4 w-4" /> Enviar Novo Arquivo
                                     </Button>
-                                    <Button onClick={handleExport} className='w-full'>
+                                    <Button onClick={handleExport} className='w-full' disabled={stats.totalClients === 0}>
                                         <Download className="mr-2 h-4 w-4" /> Fazer Backup (CSV)
                                     </Button>
                                  </CardContent>
@@ -336,52 +345,84 @@ export default function AdminPage() {
                         <CardDescription>Comece enviando seu arquivo Excel (.xls ou .xlsx) para processamento.</CardDescription>
                         </CardHeader>
                         <CardContent>
-                        <FileUploader onFileUpload={handleFileUpload} />
+                        { stats?.totalClients === 0 ? 
+                            <div className="text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                                <FileQuestion className="mx-auto h-12 w-12" />
+                                <h3 className="mt-4 text-lg font-semibold">Base de dados vazia</h3>
+                                <p className="mt-1">Nenhum cliente encontrado. Comece enviando uma planilha para popular o sistema.</p>
+                                <div className='mt-6'>
+                                     <FileUploader onFileUpload={handleFileUpload} />
+                                </div>
+                            </div>
+                            :
+                            <FileUploader onFileUpload={handleFileUpload} />
+                        }
                         </CardContent>
                     </Card>
                 )}
 
-                {(appState === 'mapping' || appState === 'processed') && (
+                {appState === 'mapping' && (
                     <Card>
                     <CardHeader>
                         <CardTitle>Etapa 2: Mapear e Processar</CardTitle>
                         <CardDescription>
-                            {appState === 'mapping' ? 'Associe as colunas da sua planilha aos campos corretos. Depois, clique em "Processar e Salvar".' : 'Dados processados com sucesso! Você pode enviar um novo arquivo ou exportar os dados.'}
+                            Associe as colunas da sua planilha aos campos corretos. Depois, clique em "Processar e Salvar".
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <DataTable 
-                        headers={headers}
-                        data={data}
-                        columnMappings={columnMappings}
-                        onColumnMappingChange={handleColumnMappingChange}
-                        validationResults={null}
-                        />
+                        <div className="w-full overflow-x-auto">
+                            <DataTable 
+                            headers={headers}
+                            data={data.slice(0, 5)}
+                            columnMappings={columnMappings}
+                            onColumnMappingChange={handleColumnMappingChange}
+                            validationResults={null}
+                            />
+                        </div>
+                        {data.length > 5 && (
+                            <p className="text-center text-sm text-muted-foreground">Exibindo as primeiras 5 de {data.length} linhas.</p>
+                        )}
                         <div className="flex flex-wrap gap-4 justify-end">
-                        <Button variant="outline" onClick={handleReset}>
-                            {appState === 'processed' ? 'Enviar Novo Arquivo' : 'Cancelar'}
-                        </Button>
-                        {appState === 'mapping' && (
+                            <Button variant="outline" onClick={handleReset}>
+                                Cancelar
+                            </Button>
                             <Button onClick={handleProcessAndSave} disabled={isProcessing || !isMappingComplete}>
                                 {isProcessing ? (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 ) : (
                                 <Save className="mr-2 h-4 w-4" />
                                 )}
-                                Processar e Salvar
+                                Processar e Salvar {data.length} linhas
                             </Button>
-                        )}
-                        <Button onClick={handleExport} disabled={stats?.totalClients === 0}>
-                            <Download className="mr-2 h-4 w-4" />
-                            Fazer Backup (CSV)
-                        </Button>
                         </div>
-                        {appState === 'mapping' && !isMappingComplete && (
+                        {!isMappingComplete && (
                             <p className="text-sm text-muted-foreground text-right">Mapeie todos os campos obrigatórios para habilitar o processamento.</p>
                         )}
                     </CardContent>
                     </Card>
                 )}
+
+                 {appState === 'processed' && (
+                     <Card className="text-center">
+                        <CardHeader>
+                            <CardTitle className='flex items-center justify-center gap-2'><CheckCircle className='text-green-500'/> Processamento Concluído</CardTitle>
+                            <CardDescription>Os dados foram salvos com sucesso no banco de dados.</CardDescription>
+                        </CardHeader>
+                        <CardContent className='flex flex-col sm:flex-row gap-4 justify-center'>
+                           <Button onClick={handleReset} className='w-full sm:w-auto'>
+                                <UploadCloud className="mr-2 h-4 w-4" /> Enviar Novo Arquivo
+                            </Button>
+                            <Button onClick={handleExport} className='w-full sm:w-auto' variant="outline">
+                                <Download className="mr-2 h-4 w-4" /> Fazer Backup (CSV)
+                            </Button>
+                             <Link href="/" passHref className='w-full sm:w-auto'>
+                                <Button variant="secondary" className='w-full'>
+                                    <Search className="mr-2 h-4 w-4" /> Ir para Consulta
+                                </Button>
+                            </Link>
+                        </CardContent>
+                    </Card>
+                 )}
             </div>
         )}
       </div>
