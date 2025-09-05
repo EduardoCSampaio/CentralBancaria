@@ -6,7 +6,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { FileUploader } from '@/components/file-uploader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Loader2, Save, UploadCloud, KeyRound, ArrowLeft, Users, AreaChart, BarChart2, FileQuestion } from 'lucide-react';
+import { Download, Loader2, Save, UploadCloud, KeyRound, ArrowLeft, Users, AreaChart, BarChart2, FileQuestion, CheckCircle, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { REQUIRED_FIELDS, FIELD_LABELS } from '@/lib/constants';
 import { exportToCsv } from '@/lib/csv';
@@ -63,14 +63,17 @@ export default function AdminPage() {
     setStats({ totalClients, averageAge, ageDistribution });
   };
   
-  const fetchAndSetStats = async () => {
-    const allData = await getValidatedData();
+  const fetchAndSetStats = () => {
+    const allData = getValidatedData();
     calculateStats(allData);
   }
 
   useEffect(() => {
-    if(isAuthenticated) {
-      fetchAndSetStats();
+    // Check if running on the client side
+    if (typeof window !== 'undefined') {
+        if(isAuthenticated) {
+          fetchAndSetStats();
+        }
     }
   }, [isAuthenticated]);
 
@@ -152,7 +155,7 @@ export default function AdminPage() {
     });
   };
 
-  const handleProcessAndSave = async () => {
+  const handleProcessAndSave = () => {
     const mappedFields = Object.values(columnMappings);
     const missingFields = REQUIRED_FIELDS.filter(f => !mappedFields.includes(f));
 
@@ -183,9 +186,9 @@ export default function AdminPage() {
         return rowObject;
       });
       
-      await setValidatedData(processedData);
+      setValidatedData(processedData);
       setAppState("processed");
-      await fetchAndSetStats(); // Recalculate stats after saving new data
+      fetchAndSetStats(); // Recalculate stats after saving new data
 
       toast({
         title: 'Processamento concluído!',
@@ -204,8 +207,8 @@ export default function AdminPage() {
     }
   };
   
-  const handleExport = async () => {
-    const dataToExport = await getValidatedData();
+  const handleExport = () => {
+    const dataToExport = getValidatedData();
     if(dataToExport.length === 0){
         toast({
             variant: 'destructive',

@@ -1,44 +1,37 @@
 "use client";
 
-import { db } from './firebase';
-import { collection, doc, getDocs, writeBatch } from 'firebase/firestore';
+const STORAGE_KEY = 'validatedClientData';
 
-const COLLECTION_NAME = 'clients';
-
-// Armazena os dados validados no Firestore
-export async function setValidatedData(data: Record<string, any>[]) {
+// Armazena os dados validados no localStorage
+export function setValidatedData(data: Record<string, any>[]) {
     if (typeof window !== 'undefined') {
         try {
-            const batch = writeBatch(db);
-            const clientsCollection = collection(db, COLLECTION_NAME);
+            // Para evitar duplicatas baseadas no CPF, criamos um mapa
+            const existingData = getValidatedData();
+            const dataMap = new Map(existingData.map(item => [item.cpf, item]));
 
+            // Adiciona ou atualiza novos itens
             data.forEach(newItem => {
-                // Usa o CPF como ID do documento para evitar duplicatas
-                const docRef = doc(clientsCollection, newItem.cpf);
-                batch.set(docRef, newItem, { merge: true }); // merge: true atualiza se já existir
+                dataMap.set(newItem.cpf, newItem);
             });
 
-            await batch.commit();
-
+            const finalData = Array.from(dataMap.values());
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(finalData));
         } catch (error) {
-            console.error("Erro ao salvar dados no Firestore:", error);
-            throw error; // Propaga o erro para ser tratado na UI
+            console.error("Erro ao salvar dados no localStorage:", error);
+            // Em um cenário real, poderíamos mostrar um toast para o usuário
         }
     }
 }
 
-// Recupera os dados validados do Firestore
-export async function getValidatedData(): Promise<Record<string, any>[]> {
+// Recupera os dados validados do localStorage
+export function getValidatedData(): Record<string, any>[] {
     if (typeof window !== 'undefined') {
         try {
-            const querySnapshot = await getDocs(collection(db, COLLECTION_NAME));
-            const data: Record<string, any>[] = [];
-            querySnapshot.forEach((doc) => {
-                data.push({ id: doc.id, ...doc.data() });
-            });
-            return data;
+            const data = localStorage.getItem(STORAGE_KEY);
+            return data ? JSON.parse(data) : [];
         } catch (error) {
-            console.error("Erro ao ler dados do Firestore:", error);
+            console.error("Erro ao ler dados do localStorage:", error);
             return [];
         }
     }

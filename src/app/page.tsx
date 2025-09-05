@@ -20,13 +20,13 @@ export default function ConsultaPage() {
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const fetchData = async () => {
+        // Check if running on the client side
+        if (typeof window !== 'undefined') {
             setIsLoading(true);
-            const data = await getValidatedData();
+            const data = getValidatedData();
             setAllData(data);
             setIsLoading(false);
-        };
-        fetchData();
+        }
     }, []);
 
     const handleSearch = () => {
@@ -134,7 +134,7 @@ export default function ConsultaPage() {
                             <CardContent>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                                     {Object.entries(clientData).map(([key, value]) => {
-                                        if (key === 'id') return null; // Não exibe o ID do documento
+                                        if (key === 'id') return null; // Não exibe o ID
                                         return (
                                             <div key={key}>
                                                 <p className="text-sm font-medium text-muted-foreground">{formatLabel(key)}</p>
