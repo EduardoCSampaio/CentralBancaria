@@ -12,10 +12,10 @@ import { FIELD_LABELS } from "@/lib/constants";
 type ClientData = Record<string, any>;
 
 export default function ConsultaPage() {
-    const [searchCpf, setSearchCpf] = useState('');
-    const [clientData, setClientData] = useState<ClientData | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [searchResults, setSearchResults] = useState<ClientData[]>([]);
     const [allData, setAllData] = useState<ClientData[]>([]);
-    const [notFound, setNotFound] = useState(false);
+    const [hasSearched, setHasSearched] = useState(false);
 
     useEffect(() => {
         const data = getValidatedData();
@@ -23,22 +23,20 @@ export default function ConsultaPage() {
     }, []);
 
     const handleSearch = () => {
-        const formattedSearchCpf = searchCpf.replace(/\D/g, '').padStart(11, '0');
-        if (!formattedSearchCpf) {
-            setClientData(null);
-            setNotFound(false);
+        setHasSearched(true);
+        if (!searchTerm.trim()) {
+            setSearchResults([]);
             return;
         }
 
-        const result = allData.find(client => client.cpf === formattedSearchCpf);
-
-        if (result) {
-            setClientData(result);
-            setNotFound(false);
-        } else {
-            setClientData(null);
-            setNotFound(true);
-        }
+        const lowercasedTerm = searchTerm.toLowerCase();
+        const results = allData.filter(client => 
+            Object.values(client).some(value =>
+                String(value).toLowerCase().includes(lowercasedTerm)
+            )
+        );
+        
+        setSearchResults(results);
     };
 
     const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -71,15 +69,15 @@ export default function ConsultaPage() {
             <Card className="max-w-2xl mx-auto">
                 <CardHeader>
                     <CardTitle>Consulta de Cliente</CardTitle>
-                    <CardDescription>Digite o CPF do cliente para ver os detalhes dos dados processados.</CardDescription>
+                    <CardDescription>Digite qualquer informação do cliente (CPF, nome, etc.) para buscar.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="flex gap-2">
                         <Input 
                             type="text"
-                            placeholder="Digite o CPF..."
-                            value={searchCpf}
-                            onChange={(e) => setSearchCpf(e.target.value)}
+                            placeholder="Digite para buscar..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             onKeyDown={handleKeyDown}
                         />
                         <Button onClick={handleSearch}>
@@ -90,31 +88,36 @@ export default function ConsultaPage() {
                 </CardContent>
             </Card>
 
-            {clientData && (
-                <Card className="max-w-2xl mx-auto mt-8 animate-in fade-in-0 zoom-in-95">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><User />Informações do Cliente</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {Object.entries(clientData).map(([key, value]) => (
-                                <div key={key}>
-                                    <p className="text-sm font-medium text-muted-foreground">{formatLabel(key)}</p>
-                                    <p className="text-lg font-semibold">{value}</p>
+            {hasSearched && searchResults.length > 0 && (
+                 <div className="max-w-2xl mx-auto mt-8 space-y-6">
+                    <h2 className="text-xl font-semibold">Resultados da Busca ({searchResults.length})</h2>
+                    {searchResults.map((clientData, index) => (
+                        <Card key={index} className="animate-in fade-in-0 zoom-in-95">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2"><User />{clientData.nome || 'Informações do Cliente'}</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {Object.entries(clientData).map(([key, value]) => (
+                                        <div key={key}>
+                                            <p className="text-sm font-medium text-muted-foreground">{formatLabel(key)}</p>
+                                            <p className="text-lg font-semibold">{String(value)}</p>
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
+                            </CardContent>
+                        </Card>
+                    ))}
+                 </div>
             )}
 
-            {notFound && (
+            {hasSearched && searchResults.length === 0 && (
                  <Card className="max-w-2xl mx-auto mt-8 border-destructive/50">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle />Cliente não encontrado</CardTitle>
+                        <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle />Nenhum resultado</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-destructive">Não foi encontrado nenhum cliente com o CPF informado. Verifique o número e tente novamente ou processe um novo arquivo no Painel Admin.</p>
+                        <p className="text-destructive">Não foi encontrado nenhum cliente com o termo informado. Verifique e tente novamente ou processe um novo arquivo no Painel Admin.</p>
                     </CardContent>
                 </Card>
             )}
