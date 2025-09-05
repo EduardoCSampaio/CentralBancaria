@@ -125,7 +125,7 @@ export default function UploadPage() {
       setAppState("validated");
       toast({
         title: 'Validação concluída!',
-        description: 'Os dados foram validados pela IA. Verifique os resultados.',
+        description: 'Os dados foram validados e salvos localmente. Verifique os resultados.',
         className: 'bg-accent/90 text-accent-foreground border-accent'
       });
     } catch (error) {
@@ -256,3 +256,5 @@ export default function UploadPage() {
     </main>
   );
 }
+
+    
