@@ -74,7 +74,7 @@ export function DataTable({
                         <SelectValue placeholder="Selecione um campo" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Nenhum</SelectItem>
+                        <SelectItem value="none">Nenhum</SelectItem>
                         {columnMappings[header] && <SelectItem value={columnMappings[header]!}>{FIELD_LABELS[columnMappings[header]!]}</SelectItem>}
                         {availableFields.map((field) => (
                           <SelectItem key={field} value={field}>
