@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { getValidatedData } from "@/lib/storage";
-import { Search, User, AlertTriangle, Building, Shield } from "lucide-react";
+import { Search, User, AlertTriangle, Building, Shield, Loader2 } from "lucide-react";
 import { FIELD_LABELS } from "@/lib/constants";
 
 type ClientData = Record<string, any>;
@@ -16,10 +16,16 @@ export default function ConsultaPage() {
     const [searchResults, setSearchResults] = useState<ClientData[]>([]);
     const [allData, setAllData] = useState<ClientData[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        const data = getValidatedData();
-        setAllData(data);
+        const fetchData = async () => {
+            setIsLoading(true);
+            const data = await getValidatedData();
+            setAllData(data);
+            setIsLoading(false);
+        };
+        fetchData();
     }, []);
 
     const handleSearch = () => {
@@ -79,16 +85,24 @@ export default function ConsultaPage() {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             onKeyDown={handleKeyDown}
+                            disabled={isLoading}
                         />
-                        <Button onClick={handleSearch}>
-                            <Search className="mr-2 h-4 w-4" />
+                        <Button onClick={handleSearch} disabled={isLoading}>
+                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                             Buscar
                         </Button>
                     </div>
                 </CardContent>
             </Card>
+            
+            {isLoading && (
+                <div className="flex justify-center items-center mt-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="ml-4 text-muted-foreground">Carregando dados dos clientes...</p>
+                </div>
+            )}
 
-            {hasSearched && searchResults.length > 0 && (
+            {!isLoading && hasSearched && searchResults.length > 0 && (
                  <div className="max-w-2xl mx-auto mt-8 space-y-6">
                     <h2 className="text-xl font-semibold">Resultados da Busca ({searchResults.length})</h2>
                     {searchResults.map((clientData, index) => (
@@ -111,7 +125,7 @@ export default function ConsultaPage() {
                  </div>
             )}
 
-            {hasSearched && searchResults.length === 0 && (
+            {!isLoading && hasSearched && searchResults.length === 0 && (
                  <Card className="max-w-2xl mx-auto mt-8 border-destructive/50">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle />Nenhum resultado</CardTitle>

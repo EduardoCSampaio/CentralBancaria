@@ -34,8 +34,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const { toast } = useToast();
 
-  const calculateStats = () => {
-    const allData = getValidatedData();
+  const calculateStats = (allData: any[]) => {
     if (allData.length === 0) {
       setStats({ totalClients: 0, averageAge: 0, ageDistribution: [] });
       return;
@@ -64,9 +63,14 @@ export default function AdminPage() {
     setStats({ totalClients, averageAge, ageDistribution });
   };
   
+  const fetchAndSetStats = async () => {
+    const allData = await getValidatedData();
+    calculateStats(allData);
+  }
+
   useEffect(() => {
     if(isAuthenticated) {
-      calculateStats();
+      fetchAndSetStats();
     }
   }, [isAuthenticated]);
 
@@ -174,9 +178,9 @@ export default function AdminPage() {
         return rowObject;
       });
       
-      setValidatedData(processedData);
+      await setValidatedData(processedData);
       setAppState("processed");
-      calculateStats(); // Recalculate stats after saving new data
+      await fetchAndSetStats(); // Recalculate stats after saving new data
 
       toast({
         title: 'Processamento concluído!',
@@ -195,8 +199,8 @@ export default function AdminPage() {
     }
   };
   
-  const handleExport = () => {
-    const dataToExport = getValidatedData();
+  const handleExport = async () => {
+    const dataToExport = await getValidatedData();
     if(dataToExport.length === 0){
         toast({
             variant: 'destructive',
