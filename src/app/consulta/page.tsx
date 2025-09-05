@@ -23,13 +23,14 @@ export default function ConsultaPage() {
     }, []);
 
     const handleSearch = () => {
-        if (!searchCpf) {
+        const formattedSearchCpf = searchCpf.padStart(11, '0');
+        if (!formattedSearchCpf) {
             setClientData(null);
             setNotFound(false);
             return;
         }
 
-        const result = allData.find(client => client.cpf === searchCpf);
+        const result = allData.find(client => client.cpf === formattedSearchCpf);
 
         if (result) {
             setClientData(result);
@@ -60,7 +61,7 @@ export default function ConsultaPage() {
                 </Link>
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-primary">Consulta de Cliente</h1>
-                    <p className="text-muted-foreground">Encontre informações de clientes validados pelo CPF.</p>
+                    <p className="text-muted-foreground">Encontre informações de clientes processados pelo CPF.</p>
                 </div>
             </div>
 
@@ -110,7 +111,7 @@ export default function ConsultaPage() {
                         <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle />Cliente não encontrado</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-destructive">Não foi encontrado nenhum cliente com o CPF informado nos dados validados. Verifique o número e tente novamente.</p>
+                        <p className="text-destructive">Não foi encontrado nenhum cliente com o CPF informado nos dados processados. Verifique o número e tente novamente.</p>
                     </CardContent>
                 </Card>
             )}

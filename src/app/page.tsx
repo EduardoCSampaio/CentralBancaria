@@ -1,34 +1,31 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { FileUploader } from '@/components/file-uploader';
 import { DataTable } from '@/components/data-table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, FileCheck2, Loader2, Search, Sparkles, UploadCloud } from 'lucide-react';
-import type { ValidateImportedDataInput, ValidateImportedDataOutput } from '@/ai/flows/validate-imported-data';
-import { validateImportedData } from '@/ai/flows/validate-imported-data';
+import { Download, FileCheck2, Loader2, Search, Save, UploadCloud } from 'lucide-react';
+import type { ValidateImportedDataOutput } from '@/ai/flows/validate-imported-data';
 import { useToast } from '@/hooks/use-toast';
 import { REQUIRED_FIELDS, FIELD_LABELS } from '@/lib/constants';
 import { exportToCsv } from '@/lib/csv';
 import { setValidatedData } from '@/lib/storage';
 
-type AppState = "upload" | "mapping" | "validated";
+type AppState = "upload" | "mapping" | "processed";
 
 export default function UploadPage() {
   const [appState, setAppState] = useState<AppState>("upload");
   const [data, setData] = useState<any[][]>([]);
   const [headers, setHeaders] = useState<string[]>([]);
   const [columnMappings, setColumnMappings] = useState<Record<string, string>>({});
-  const [validationResults, setValidationResults] = useState<Record<number, ValidateImportedDataOutput['validationResults']>>({});
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
   const handleFileUpload = (uploadedData: any[][], uploadedHeaders: string[]) => {
     setData(uploadedData);
     setHeaders(uploadedHeaders);
-    setValidationResults({});
     setAppState("mapping");
 
     // Automatic mapping
@@ -76,7 +73,7 @@ export default function UploadPage() {
     });
   };
 
-  const handleValidate = async () => {
+  const handleProcessAndSave = async () => {
     const mappedFields = Object.values(columnMappings);
     const missingFields = REQUIRED_FIELDS.filter(f => !mappedFields.includes(f));
 
@@ -90,50 +87,37 @@ export default function UploadPage() {
     }
 
     setIsProcessing(true);
-    const newValidationResults: Record<number, ValidateImportedDataOutput['validationResults']> = {};
-    const validatedDataToStore: Record<string, any>[] = [];
     
     try {
-      for (let i = 0; i < data.length; i++) {
-        const row = data[i];
-        const input: ValidateImportedDataInput = Object.fromEntries(
-            REQUIRED_FIELDS.map(field => [field, ''])
-        ) as ValidateImportedDataInput;
-        
-        const rowObjectForStorage: Record<string, any> = {};
-
+      const processedData = data.map(row => {
+        const rowObject: Record<string, any> = {};
         headers.forEach((header, index) => {
           const mappedField = columnMappings[header];
           if (mappedField) {
-            const value = row[index] !== null && row[index] !== undefined ? String(row[index]) : '';
-            input[mappedField as keyof ValidateImportedDataInput] = value;
-            rowObjectForStorage[mappedField] = value;
+             let value = row[index] !== null && row[index] !== undefined ? String(row[index]) : '';
+             if (mappedField === 'cpf') {
+                 value = value.padStart(11, '0');
+             }
+             rowObject[mappedField] = value;
           }
         });
-
-        const result = await validateImportedData(input);
-        newValidationResults[i] = result.validationResults;
-        const hasErrors = result.validationResults.some(res => !res.isValid);
-        if (!hasErrors) {
-           validatedDataToStore.push(rowObjectForStorage);
-        }
-      }
+        return rowObject;
+      });
       
-      setValidatedData(validatedDataToStore);
+      setValidatedData(processedData);
+      setAppState("processed");
 
-      setValidationResults(newValidationResults);
-      setAppState("validated");
       toast({
-        title: 'Validação concluída!',
-        description: 'Os dados foram validados e salvos localmente. Verifique os resultados.',
+        title: 'Processamento concluído!',
+        description: 'Os dados foram processados e salvos localmente. Agora você pode consultá-los ou exportá-los.',
         className: 'bg-accent/90 text-accent-foreground border-accent'
       });
     } catch (error) {
       console.error(error);
       toast({
         variant: 'destructive',
-        title: 'Erro na validação',
-        description: 'Ocorreu um erro ao se comunicar com o serviço de IA.',
+        title: 'Erro no processamento',
+        description: 'Ocorreu um erro ao processar os dados.',
       });
     } finally {
       setIsProcessing(false);
@@ -141,12 +125,16 @@ export default function UploadPage() {
   };
   
   const handleExport = () => {
-    const processedData = data.map((row, rowIndex) => {
+    const processedData = data.map((row) => {
         const rowObject: Record<string, any> = {};
         REQUIRED_FIELDS.forEach(field => {
             const headerIndex = headers.findIndex(h => columnMappings[h] === field);
             if (headerIndex !== -1) {
-                rowObject[field] = row[headerIndex];
+                let value = row[headerIndex] !== null && row[headerIndex] !== undefined ? String(row[headerIndex]) : '';
+                 if (field === 'cpf') {
+                    value = value.padStart(11, '0');
+                 }
+                rowObject[field] = value;
             } else {
                 rowObject[field] = '';
             }
@@ -154,7 +142,7 @@ export default function UploadPage() {
         return rowObject;
     });
 
-    exportToCsv(processedData, 'dados_validados.csv');
+    exportToCsv(processedData, 'dados_processados.csv');
      toast({
       title: 'Exportação Iniciada',
       description: 'Seu arquivo CSV será baixado em breve.',
@@ -166,7 +154,6 @@ export default function UploadPage() {
     setData([]);
     setHeaders([]);
     setColumnMappings({});
-    setValidationResults({});
   };
 
   const isMappingComplete = REQUIRED_FIELDS.length === Object.values(columnMappings).filter(Boolean).length;
@@ -181,7 +168,7 @@ export default function UploadPage() {
             </h1>
         </div>
         <p className="max-w-2xl text-lg text-muted-foreground">
-          Importe, valide com IA e exporte seus dados de planilha com facilidade e precisão.
+          Importe, processe e exporte seus dados de planilha com facilidade e precisão.
         </p>
       </div>
       
@@ -190,7 +177,7 @@ export default function UploadPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><UploadCloud /> Etapa 1: Enviar Planilha</CardTitle>
-              <CardDescription>Comece enviando seu arquivo Excel (.xls ou .xlsx) para validação.</CardDescription>
+              <CardDescription>Comece enviando seu arquivo Excel (.xls ou .xlsx).</CardDescription>
             </CardHeader>
             <CardContent>
               <FileUploader onFileUpload={handleFileUpload} />
@@ -199,7 +186,7 @@ export default function UploadPage() {
           <Card className="flex flex-col">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><Search />Consultar Cliente</CardTitle>
-                <CardDescription>Busque por um cliente já validado usando o CPF.</CardDescription>
+                <CardDescription>Busque por um cliente já processado usando o CPF.</CardDescription>
             </CardHeader>
             <CardContent className="flex-grow flex flex-col items-center justify-center text-center">
                 <p className="text-muted-foreground mb-4">Acesse a página de consulta para buscar clientes.</p>
@@ -214,12 +201,12 @@ export default function UploadPage() {
         </div>
       )}
 
-      {(appState === 'mapping' || appState === 'validated') && (
+      {(appState === 'mapping' || appState === 'processed') && (
         <Card>
           <CardHeader>
-             <CardTitle>Etapa 2: Mapear e Validar</CardTitle>
+             <CardTitle>Etapa 2: Mapear e Processar</CardTitle>
              <CardDescription>
-                Associe cada coluna da sua planilha ao campo correto. Depois, clique em "Validar com IA" para verificar os dados.
+                Associe cada coluna da sua planilha ao campo correto. Depois, clique em "Processar e Salvar".
              </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -228,27 +215,27 @@ export default function UploadPage() {
               data={data}
               columnMappings={columnMappings}
               onColumnMappingChange={handleColumnMappingChange}
-              validationResults={validationResults}
+              validationResults={null}
             />
             <div className="flex flex-wrap gap-4 justify-end">
                <Button variant="outline" onClick={handleReset}>
                 Enviar Novo Arquivo
                </Button>
-               <Button onClick={handleValidate} disabled={isProcessing || !isMappingComplete}>
+               <Button onClick={handleProcessAndSave} disabled={isProcessing || !isMappingComplete}>
                 {isProcessing ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <Sparkles className="mr-2 h-4 w-4" />
+                  <Save className="mr-2 h-4 w-4" />
                 )}
-                Validar com IA
+                Processar e Salvar
                </Button>
-               <Button onClick={handleExport} disabled={appState !== 'validated'}>
+               <Button onClick={handleExport} disabled={appState !== 'processed'}>
                 <Download className="mr-2 h-4 w-4" />
                 Exportar CSV
                </Button>
             </div>
              {!isMappingComplete && (
-                <p className="text-sm text-muted-foreground text-right">Mapeie todos os campos obrigatórios para habilitar a validação.</p>
+                <p className="text-sm text-muted-foreground text-right">Mapeie todos os campos obrigatórios para habilitar o processamento.</p>
              )}
           </CardContent>
         </Card>
@@ -256,5 +243,3 @@ export default function UploadPage() {
     </main>
   );
 }
-
-    

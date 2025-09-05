@@ -99,33 +99,11 @@ export function DataTable({
             {data.slice(0, 10).map((row, rowIndex) => (
               <TableRow key={rowIndex}>
                 {row.map((cell, colIndex) => {
-                  const validation = getValidationStatus(rowIndex, colIndex);
                   const cellContent = cell === null || cell === undefined ? '' : String(cell);
                   
                   return (
-                    <TableCell key={colIndex} className={cn("whitespace-nowrap transition-colors", {
-                      "bg-destructive/10 text-destructive-foreground": validation && !validation.isValid,
-                      "bg-accent/20": validation && validation.isValid,
-                    })}>
-                      {validation ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center gap-2">
-                              {validation.isValid ? (
-                                <CheckCircle className="h-4 w-4 shrink-0 text-green-600" />
-                              ) : (
-                                <AlertCircle className="h-4 w-4 shrink-0 text-destructive" />
-                              )}
-                              <span className="truncate">{cellContent}</span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>{validation.isValid ? 'Validado' : `Erro: ${validation.errorMessage}`}</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      ) : (
+                    <TableCell key={colIndex} className="whitespace-nowrap transition-colors">
                         <span className="truncate">{cellContent}</span>
-                      )}
                     </TableCell>
                   );
                 })}
@@ -135,7 +113,7 @@ export function DataTable({
         </Table>
         {data.length > 10 && (
           <div className="p-4 text-center text-sm text-muted-foreground border-t">
-            Exibindo as primeiras 10 linhas. A validação será aplicada a todas as {data.length} linhas.
+            Exibindo as primeiras 10 linhas. O processamento será aplicado a todas as {data.length} linhas.
           </div>
         )}
       </div>
