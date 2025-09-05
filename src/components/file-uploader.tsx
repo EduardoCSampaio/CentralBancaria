@@ -10,6 +10,26 @@ interface FileUploaderProps {
   onFileUpload: (data: any[][], headers: string[]) => void;
 }
 
+// Função para converter número de série de data do Excel para o formato DD/MM/AAAA
+function excelSerialDateToJSDate(serial: number) {
+  if (typeof serial !== 'number' || isNaN(serial)) {
+    return null;
+  }
+  // A data base do Excel é 31/12/1899, mas há um bug histórico que considera 1900 como ano bissexto.
+  // A conversão correta subtrai 25569 (dias entre 01/01/1970 e 01/01/1900) e ajusta o fuso horário.
+  const utc_days = Math.floor(serial - 25569);
+  const date_info = new Date(utc_days * 86400 * 1000);
+
+  const day = String(date_info.getUTCDate()).padStart(2, '0');
+  const month = String(date_info.getUTCMonth() + 1).padStart(2, '0');
+  const year = date_info.getUTCFullYear();
+  
+  if (year < 1900 || year > 2100) return null; // Validação básica
+
+  return `${day}/${month}/${year}`;
+}
+
+
 export function FileUploader({ onFileUpload }: FileUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const { toast } = useToast();
@@ -28,14 +48,40 @@ export function FileUploader({ onFileUpload }: FileUploaderProps) {
     reader.onload = (e) => {
       try {
         const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
+        const workbook = XLSX.read(data, { type: 'binary', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        // Usamos { raw: false } para obter os valores formatados como strings
+        // Isso ajuda com datas, mas elas podem vir em formatos diferentes.
+        // O { header: 1 } transforma tudo em um array de arrays.
+        const jsonData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false });
+        
+        // Agora, uma segunda passada com raw: true para pegar os números das datas
+        const rawData: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true });
 
         if (jsonData.length > 1) {
           const headers = jsonData[0].map(h => String(h));
-          onFileUpload(jsonData.slice(1), headers);
+          const processedData = jsonData.slice(1).map((row, rowIndex) => {
+            return row.map((cell, colIndex) => {
+              const rawCell = rawData[rowIndex + 1]?.[colIndex];
+
+              // Se a célula bruta for um número e parece ser uma data do Excel, converta.
+              if (typeof rawCell === 'number' && rawCell > 20000 && rawCell < 80000) {
+                 const formattedDate = excelSerialDateToJSDate(rawCell);
+                 if (formattedDate) return formattedDate;
+              }
+              
+              // Se for uma data JS (por causa de cellDates: true), formate-a
+              if (cell instanceof Date) {
+                  return cell.toLocaleDateString('pt-BR');
+              }
+
+              return cell;
+            });
+          });
+
+          onFileUpload(processedData, headers);
         } else {
            toast({
             variant: 'destructive',

@@ -167,6 +167,7 @@ export default function AdminPage() {
   const handleProcessAndSave = async () => {
     const mappedFields = Object.values(columnMappings);
     const missingFields = REQUIRED_FIELDS.filter(f => !mappedFields.includes(f));
+    const currencyFields = ['valor_beneficio', 'margem_disponivel', 'margem_rmc'];
 
     if (missingFields.length > 0) {
       toast({
@@ -186,10 +187,16 @@ export default function AdminPage() {
           const mappedField = columnMappings[header];
           if (mappedField) {
              let value = row[index] !== null && row[index] !== undefined ? String(row[index]) : '';
-             // Pad CPF with leading zeros to ensure it has 11 digits
+             
              if (mappedField === 'cpf') {
                  value = value.padStart(11, '0');
              }
+
+             if (currencyFields.includes(mappedField)) {
+                // Remove R$, espaços, e troca vírgula por ponto para salvar no BD
+                value = value.replace(/R\$\s?/, '').replace(/\./g, '').replace(/,/, '.');
+             }
+             
              rowObject[mappedField] = value;
           }
         });
