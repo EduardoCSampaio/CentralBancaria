@@ -207,8 +207,16 @@ export default function AdminPage() {
              }
 
              if (currencyFields.includes(mappedField)) {
-                // Remove R$, espaços, e troca vírgula por ponto para salvar no BD
-                value = value.replace(/R\$\s?/, '').replace(/\./g, '').replace(/,/, '.');
+                // Remove 'R$', espaços em branco.
+                // Troca o último ponto por um caractere temporário (se houver vírgula).
+                // Remove todos os outros pontos (milhar).
+                // Troca a vírgula e o caractere temporário por ponto decimal.
+                value = value.replace(/R\$\s?/, '')          // Remove R$ e espaço
+                             .replace(/\./g, (match, offset, full) => {
+                                 // Se não for o último ponto, remove
+                                 return full.indexOf('.', offset + 1) !== -1 ? '' : match;
+                             })
+                             .replace(/,/, '.'); // Troca vírgula por ponto
              }
              
              rowObject[mappedField] = value;
@@ -285,6 +293,8 @@ export default function AdminPage() {
                 description: 'Todas as datas de nascimento no banco de dados já estão no formato correto.',
             });
         }
+        // Recarrega as estatísticas caso a idade dos clientes tenha mudado
+        await fetchAndSetStats();
     } catch(e) {
         toast({
             variant: 'destructive',

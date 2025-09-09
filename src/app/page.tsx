@@ -86,7 +86,7 @@ export default function ConsultaPage() {
              // Remove non-digit characters except for comma and period, then format
             const numericValue = parseFloat(stringValue.replace(/[^\d,.-]/g, '').replace(',', '.'));
             if (!isNaN(numericValue)) {
-                return `R$ ${numericValue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numericValue);
             }
         }
         
