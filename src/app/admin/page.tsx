@@ -6,11 +6,11 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { FileUploader } from '@/components/file-uploader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Loader2, Save, UploadCloud, KeyRound, ArrowLeft, Users, AreaChart, BarChart2, FileQuestion, CheckCircle, Search, CalendarCheck, Coins } from 'lucide-react';
+import { Download, Loader2, Save, UploadCloud, KeyRound, ArrowLeft, Users, AreaChart, BarChart2, FileQuestion, CheckCircle, Search, CalendarCheck, Coins, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { REQUIRED_FIELDS, FIELD_LABELS } from '@/lib/constants';
 import { exportToCsv } from '@/lib/csv';
-import { getValidatedData, setValidatedData, checkAndFixDates, checkAndFixMargins } from '@/lib/storage';
+import { getValidatedData, setValidatedData, checkAndFixDates, checkAndFixMargins, deleteAllClients } from '@/lib/storage';
 import { Input } from '@/components/ui/input';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { DataTable } from '@/components/data-table';
@@ -48,6 +48,7 @@ export default function AdminPage() {
   const [isFetchingStats, setIsFetchingStats] = useState(true);
   const [isCheckingDates, setIsCheckingDates] = useState(false);
   const [isCheckingMargins, setIsCheckingMargins] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const calculateStats = (allData: any[]) => {
     if (allData.length === 0) {
@@ -208,11 +209,9 @@ export default function AdminPage() {
              }
 
              if (currencyFields.includes(mappedField)) {
-                // Remove 'R$', espaços em branco e pontos de milhar.
-                // Troca vírgula por ponto decimal.
-                value = value.replace(/R\$\s?/, '')  // Remove R$
-                             .replace(/\./g, '')      // Remove todos os pontos (milhar)
-                             .replace(/,/, '.');      // Troca vírgula por ponto decimal
+                value = value.replace(/R\$\s?/, '')
+                             .replace(/\./g, '')    
+                             .replace(/,/, '.');     
              }
              
              rowObject[mappedField] = value;
@@ -328,6 +327,29 @@ export default function AdminPage() {
       setIsCheckingMargins(false);
     }
   };
+  
+  const handleDeleteAll = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteAllClients();
+      toast({
+        title: 'Base de Dados Limpa!',
+        description: 'Todos os clientes foram removidos com sucesso.',
+        className: 'bg-accent/90 text-accent-foreground border-accent',
+      });
+      // Recarrega as estatísticas para refletir a base vazia
+      await fetchAndSetStats();
+      setAppState('upload');
+    } catch (e) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao Limpar a Base',
+        description: 'Não foi possível remover os clientes. Tente novamente.',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
 
   const handleReset = () => {
@@ -338,6 +360,7 @@ export default function AdminPage() {
   };
 
   const isMappingComplete = REQUIRED_FIELDS.every(f => Object.values(columnMappings).includes(f));
+  const isActionDisabled = isCheckingDates || isCheckingMargins || isDeleting || stats?.totalClients === 0;
 
   return (
     <main className="container mx-auto p-4 md:p-8">
@@ -419,12 +442,12 @@ export default function AdminPage() {
                                     <Button variant="outline" onClick={handleReset} className='flex-1 min-w-[180px]' disabled={appState === 'upload'}>
                                         <UploadCloud className="mr-2 h-4 w-4" /> Enviar Novo Arquivo
                                     </Button>
-                                    <Button onClick={handleExport} className='flex-1 min-w-[180px]' disabled={stats.totalClients === 0}>
+                                    <Button onClick={handleExport} className='flex-1 min-w-[180px]' disabled={isActionDisabled}>
                                         <Download className="mr-2 h-4 w-4" /> Fazer Backup (CSV)
                                     </Button>
                                      <AlertDialog>
                                         <AlertDialogTrigger asChild>
-                                           <Button variant="secondary" className='flex-1 min-w-[180px]' disabled={isCheckingDates || stats.totalClients === 0}>
+                                           <Button variant="secondary" className='flex-1 min-w-[180px]' disabled={isActionDisabled}>
                                                 {isCheckingDates ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarCheck className="mr-2 h-4 w-4" />}
                                                 Verificar Datas
                                             </Button>
@@ -445,7 +468,7 @@ export default function AdminPage() {
                                     </AlertDialog>
                                      <AlertDialog>
                                         <AlertDialogTrigger asChild>
-                                           <Button variant="secondary" className='flex-1 min-w-[180px]' disabled={isCheckingMargins || stats.totalClients === 0}>
+                                           <Button variant="secondary" className='flex-1 min-w-[180px]' disabled={isActionDisabled}>
                                                 {isCheckingMargins ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Coins className="mr-2 h-4 w-4" />}
                                                 Corrigir Margens
                                             </Button>
@@ -460,6 +483,27 @@ export default function AdminPage() {
                                             <AlertDialogFooter>
                                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                             <AlertDialogAction onClick={handleCheckAndFixMargins}>Sim, Verificar e Corrigir</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                           <Button variant="destructive" className='flex-1 min-w-[180px]' disabled={isActionDisabled}>
+                                                {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+                                                Limpar Base de Dados
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                            <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                               Esta ação é irreversível e irá apagar permanentemente todos os clientes da sua base de dados.
+                                                Não será possível recuperar estes dados. Deseja continuar?
+                                            </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleDeleteAll} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Sim, Apagar Tudo</AlertDialogAction>
                                             </AlertDialogFooter>
                                         </AlertDialogContent>
                                     </AlertDialog>

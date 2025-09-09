@@ -153,3 +153,19 @@ export async function checkAndFixMargins(): Promise<number> {
 
     return recordsToUpdate.length;
 }
+
+// Função para apagar TODOS os clientes da base de dados
+export async function deleteAllClients() {
+    // Para apagar todas as linhas, o Supabase exige um filtro.
+    // Usamos `neq` (not equal) em uma coluna que sempre existirá (como 'id' ou 'cpf')
+    // com um valor que nunca será verdadeiro para apagar tudo.
+    const { error } = await supabase
+        .from(TABLE_NAME)
+        .delete()
+        .neq('cpf', 'NON_EXISTENT_CPF_TO_DELETE_ALL'); // Filtro para apagar tudo
+
+    if (error) {
+        console.error("Erro ao apagar todos os clientes:", error);
+        throw error;
+    }
+}
