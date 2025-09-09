@@ -110,3 +110,46 @@ export async function checkAndFixDates(): Promise<number> {
 
     return recordsToUpdate.length;
 }
+
+// Função para verificar e corrigir valores monetários no banco de dados
+export async function checkAndFixMargins(): Promise<number> {
+    const allData = await getValidatedData();
+    const recordsToUpdate: Record<string, any>[] = [];
+    const currencyFields = ['valor_beneficio', 'margem_disponivel', 'margem_rmc'];
+
+    for (const client of allData) {
+        let needsUpdate = false;
+        const updatedClient = { ...client };
+
+        for (const field of currencyFields) {
+            const value = client[field];
+            // Verifica se o valor é uma string e não contém ponto ou vírgula
+            if (typeof value === 'string' && !value.includes('.') && !value.includes(',')) {
+                const numericValue = parseFloat(value);
+                 // Verifica se é um número inteiro e maior que zero
+                if (!isNaN(numericValue) && Number.isInteger(numericValue) && numericValue > 0) {
+                    // Divide por 100 e formata como string com duas casas decimais
+                    updatedClient[field] = (numericValue / 100).toFixed(2);
+                    needsUpdate = true;
+                }
+            }
+        }
+
+        if (needsUpdate) {
+            recordsToUpdate.push(updatedClient);
+        }
+    }
+
+    if (recordsToUpdate.length > 0) {
+        const { error } = await supabase
+            .from(TABLE_NAME)
+            .upsert(recordsToUpdate, { onConflict: 'cpf' });
+
+        if (error) {
+            console.error("Erro ao atualizar as margens:", error);
+            throw error;
+        }
+    }
+
+    return recordsToUpdate.length;
+}

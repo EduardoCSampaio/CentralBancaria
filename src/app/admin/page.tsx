@@ -6,11 +6,11 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { FileUploader } from '@/components/file-uploader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Download, Loader2, Save, UploadCloud, KeyRound, ArrowLeft, Users, AreaChart, BarChart2, FileQuestion, CheckCircle, Search, CalendarCheck } from 'lucide-react';
+import { Download, Loader2, Save, UploadCloud, KeyRound, ArrowLeft, Users, AreaChart, BarChart2, FileQuestion, CheckCircle, Search, CalendarCheck, Coins } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { REQUIRED_FIELDS, FIELD_LABELS } from '@/lib/constants';
 import { exportToCsv } from '@/lib/csv';
-import { getValidatedData, setValidatedData, checkAndFixDates } from '@/lib/storage';
+import { getValidatedData, setValidatedData, checkAndFixDates, checkAndFixMargins } from '@/lib/storage';
 import { Input } from '@/components/ui/input';
 import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
 import { DataTable } from '@/components/data-table';
@@ -47,6 +47,7 @@ export default function AdminPage() {
   const { toast } = useToast();
   const [isFetchingStats, setIsFetchingStats] = useState(true);
   const [isCheckingDates, setIsCheckingDates] = useState(false);
+  const [isCheckingMargins, setIsCheckingMargins] = useState(false);
 
   const calculateStats = (allData: any[]) => {
     if (allData.length === 0) {
@@ -207,16 +208,11 @@ export default function AdminPage() {
              }
 
              if (currencyFields.includes(mappedField)) {
-                // Remove 'R$', espaços em branco.
-                // Troca o último ponto por um caractere temporário (se houver vírgula).
-                // Remove todos os outros pontos (milhar).
-                // Troca a vírgula e o caractere temporário por ponto decimal.
-                value = value.replace(/R\$\s?/, '')          // Remove R$ e espaço
-                             .replace(/\./g, (match, offset, full) => {
-                                 // Se não for o último ponto, remove
-                                 return full.indexOf('.', offset + 1) !== -1 ? '' : match;
-                             })
-                             .replace(/,/, '.'); // Troca vírgula por ponto
+                // Remove 'R$', espaços em branco e pontos de milhar.
+                // Troca vírgula por ponto decimal.
+                value = value.replace(/R\$\s?/, '')  // Remove R$
+                             .replace(/\./g, '')      // Remove todos os pontos (milhar)
+                             .replace(/,/, '.');      // Troca vírgula por ponto decimal
              }
              
              rowObject[mappedField] = value;
@@ -306,6 +302,34 @@ export default function AdminPage() {
     }
   };
 
+   const handleCheckAndFixMargins = async () => {
+    setIsCheckingMargins(true);
+    try {
+      const correctedCount = await checkAndFixMargins();
+      if (correctedCount > 0) {
+        toast({
+          title: 'Margens Corrigidas!',
+          description: `${correctedCount} registro(s) de valores monetários foram corrigidos com sucesso.`,
+          className: 'bg-accent/90 text-accent-foreground border-accent',
+        });
+      } else {
+        toast({
+          title: 'Nenhuma correção necessária',
+          description: 'Todos os valores monetários no banco de dados já estão no formato correto.',
+        });
+      }
+    } catch (e) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao verificar margens',
+        description: 'Não foi possível completar a verificação. Tente novamente.',
+      });
+    } finally {
+      setIsCheckingMargins(false);
+    }
+  };
+
+
   const handleReset = () => {
     setAppState("upload");
     setData([]);
@@ -392,15 +416,15 @@ export default function AdminPage() {
                                      <CardTitle className="text-sm font-medium">Ações Rápidas</CardTitle>
                                  </CardHeader>
                                  <CardContent className='flex flex-wrap gap-2'>
-                                    <Button variant="outline" onClick={handleReset} className='flex-1' disabled={appState === 'upload'}>
+                                    <Button variant="outline" onClick={handleReset} className='flex-1 min-w-[180px]' disabled={appState === 'upload'}>
                                         <UploadCloud className="mr-2 h-4 w-4" /> Enviar Novo Arquivo
                                     </Button>
-                                    <Button onClick={handleExport} className='flex-1' disabled={stats.totalClients === 0}>
+                                    <Button onClick={handleExport} className='flex-1 min-w-[180px]' disabled={stats.totalClients === 0}>
                                         <Download className="mr-2 h-4 w-4" /> Fazer Backup (CSV)
                                     </Button>
                                      <AlertDialog>
                                         <AlertDialogTrigger asChild>
-                                           <Button variant="secondary" className='flex-1' disabled={isCheckingDates || stats.totalClients === 0}>
+                                           <Button variant="secondary" className='flex-1 min-w-[180px]' disabled={isCheckingDates || stats.totalClients === 0}>
                                                 {isCheckingDates ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarCheck className="mr-2 h-4 w-4" />}
                                                 Verificar Datas
                                             </Button>
@@ -416,6 +440,26 @@ export default function AdminPage() {
                                             <AlertDialogFooter>
                                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                             <AlertDialogAction onClick={handleCheckAndFixDates}>Sim, Verificar e Corrigir</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                     <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                           <Button variant="secondary" className='flex-1 min-w-[180px]' disabled={isCheckingMargins || stats.totalClients === 0}>
+                                                {isCheckingMargins ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Coins className="mr-2 h-4 w-4" />}
+                                                Corrigir Margens
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                            <AlertDialogTitle>Confirmar Correção de Margens?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                               Esta ação irá varrer a base de dados procurando por valores monetários que possam ter sido salvos sem o separador decimal (ex: 53130 em vez de 531.30). Apenas valores incorretos serão afetados. Deseja continuar?
+                                            </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleCheckAndFixMargins}>Sim, Verificar e Corrigir</AlertDialogAction>
                                             </AlertDialogFooter>
                                         </AlertDialogContent>
                                     </AlertDialog>
