@@ -84,6 +84,7 @@ export default function AdminPage() {
     try {
       const allData = await getValidatedData();
       calculateStats(allData);
+      setAppState(allData.length > 0 ? 'processed' : 'upload');
     } catch(e) {
       toast({
         variant: 'destructive',
@@ -207,9 +208,12 @@ export default function AdminPage() {
              if (mappedField === 'cpf') {
                  value = value.padStart(11, '0');
              }
-
+             
              if (currencyFields.includes(mappedField)) {
-                value = value.replace(/R\$\s?/, '')
+                // 1. Remove o "R$" e espaços em branco.
+                // 2. Remove os pontos (separadores de milhar).
+                // 3. Troca a vírgula (separador decimal) por ponto.
+                value = value.replace(/R\$\s?/, '') 
                              .replace(/\./g, '')    
                              .replace(/,/, '.');     
              }
