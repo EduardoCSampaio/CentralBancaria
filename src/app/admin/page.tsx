@@ -184,7 +184,6 @@ export default function AdminPage() {
   const handleProcessAndSave = async () => {
     const mappedFields = Object.values(columnMappings);
     const missingFields = REQUIRED_FIELDS.filter(f => !mappedFields.includes(f));
-    const currencyFields = ['valor_beneficio', 'margem_disponivel', 'margem_rmc'];
 
     if (missingFields.length > 0) {
       toast({
@@ -198,6 +197,8 @@ export default function AdminPage() {
     setIsProcessing(true);
     
     try {
+      const currencyFields = ['valor_beneficio', 'margem_disponivel', 'margem_rmc'];
+      
       const processedData = data.map(row => {
         const rowObject: Record<string, any> = {};
         headers.forEach((header, index) => {
@@ -210,18 +211,16 @@ export default function AdminPage() {
              }
              
              if (currencyFields.includes(mappedField)) {
-                // 1. Remove o "R$" e espaços em branco.
-                // 2. Remove os pontos (separadores de milhar).
-                // 3. Troca a vírgula (separador decimal) por ponto.
-                value = value.replace(/R\$\s?/, '') 
-                             .replace(/\./g, '')    
-                             .replace(/,/, '.');     
+                // Remove R$, espaços e pontos de milhar, depois troca vírgula por ponto.
+                value = String(value).replace(/R\$\s?/g, '') 
+                                     .replace(/\./g, '')    
+                                     .replace(/,/, '.');     
              }
              
              rowObject[mappedField] = value;
           }
         });
-        // Add default values for any missing required fields
+        // Garante que todos os campos requeridos existam no objeto
         REQUIRED_FIELDS.forEach(field => {
             if(!rowObject.hasOwnProperty(field)){
                 rowObject[field] = '';
@@ -229,22 +228,40 @@ export default function AdminPage() {
         });
         return rowObject;
       });
-      
-      await setValidatedData(processedData);
-      setAppState("processed");
-      await fetchAndSetStats(); // Recalculate stats after saving new data
 
+      // Remove duplicatas com base no CPF, mantendo a última ocorrência
+      const uniqueData = Array.from(processedData.reduce((map, obj) => {
+          // Garante que o CPF exista e seja uma string antes de usar no map
+          const cpf = obj.cpf ? String(obj.cpf) : null;
+          if (cpf) {
+            map.set(cpf, obj);
+          }
+          return map;
+      }, new Map()).values());
+
+      const duplicatesRemoved = processedData.length - uniqueData.length;
+      
+      await setValidatedData(uniqueData);
+      setAppState("processed");
+      await fetchAndSetStats(); // Recalcula o dashboard com os novos dados
+
+      let successMessage = `Os ${uniqueData.length} dados foram processados e salvos. O dashboard foi atualizado.`;
+      if (duplicatesRemoved > 0) {
+          successMessage += ` ${duplicatesRemoved} linha(s) duplicada(s) foram ignoradas.`;
+      }
+      
       toast({
         title: 'Processamento concluído!',
-        description: 'Os dados foram processados e salvos. O dashboard foi atualizado.',
+        description: successMessage,
         className: 'bg-accent/90 text-accent-foreground border-accent'
       });
-    } catch (error) {
-      console.error(error);
+
+    } catch (error: any) {
+      console.error("Erro ao salvar dados no Supabase:", error);
       toast({
         variant: 'destructive',
         title: 'Erro no processamento',
-        description: 'Ocorreu um erro ao salvar os dados no banco de dados. Verifique o console para mais detalhes.',
+        description: error.message || 'Ocorreu um erro ao salvar os dados. Verifique o console para mais detalhes.',
       });
     } finally {
       setIsProcessing(false);
@@ -633,3 +650,5 @@ export default function AdminPage() {
     </main>
   );
 }
+
+    
