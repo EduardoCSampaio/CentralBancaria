@@ -207,14 +207,15 @@ export default function AdminPage() {
              let value = row[index] !== null && row[index] !== undefined ? String(row[index]) : '';
              
              if (mappedField === 'cpf') {
-                 value = value.padStart(11, '0');
+                 // Garante que é uma string e remove não-dígitos antes de preencher
+                 value = String(value).replace(/\D/g, '').padStart(11, '0');
              }
              
              if (currencyFields.includes(mappedField)) {
                 // Remove R$, espaços e pontos de milhar, depois troca vírgula por ponto.
-                value = String(value).replace(/R\$\s?/g, '') 
-                                     .replace(/\./g, '')    
-                                     .replace(/,/, '.');     
+                value = String(value).replace(/R\$\s?/g, '')
+                                     .replace(/\./g, '')
+                                     .replace(/,/, '.');
              }
              
              rowObject[mappedField] = value;
@@ -231,8 +232,8 @@ export default function AdminPage() {
 
       // Remove duplicatas com base no CPF, mantendo a última ocorrência
       const uniqueData = Array.from(processedData.reduce((map, obj) => {
-          // Garante que o CPF exista e seja uma string antes de usar no map
-          const cpf = obj.cpf ? String(obj.cpf) : null;
+          // O CPF já foi formatado, então podemos usá-lo diretamente
+          const cpf = obj.cpf;
           if (cpf) {
             map.set(cpf, obj);
           }
@@ -650,5 +651,3 @@ export default function AdminPage() {
     </main>
   );
 }
-
-    
